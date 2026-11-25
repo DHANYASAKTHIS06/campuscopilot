@@ -184,10 +184,13 @@ html, body, [class*="css"] {
 }
 .chat-avatar.user-av { background: linear-gradient(135deg,#2563EB,#4F46E5); color:white; }
 .chat-avatar.ai-av   { background: #F1F5F9; border: 1px solid var(--border); color:#475569; }
+.chat-msg > div:not(.chat-avatar) {
+  max-width: 75%;
+}
 .chat-bubble {
-  max-width: 75%; padding: .875rem 1.1rem;
+  width: fit-content; min-width: 2.5rem; padding: .75rem 1.1rem;
   border-radius: 16px; font-size: .88rem; line-height: 1.6;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow); word-wrap: break-word;
 }
 .chat-bubble.user {
   background: var(--primary); color: white;

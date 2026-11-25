@@ -13,20 +13,14 @@ def inject_css():
             css = f.read()
     else:
         css = ""
-    # Additional inline overrides
-    extra = """
-    <style>
-    div[data-testid="stTabs"] button {
-        font-size:.875rem!important; font-weight:500!important; color:#475569!important;
-    }
-    div[data-testid="stTabs"] button[aria-selected="true"] {
-        color:#2563EB!important; font-weight:600!important;
-    }
-    .stSpinner>div { border-top-color:#2563EB!important; }
-    div[data-testid="stMetricValue"] { font-size:1.6rem!important; font-weight:700!important; }
-    </style>
-    """
-    st.markdown(f"<style>{css}</style>{extra}", unsafe_allow_html=True)
+    # Additional inline overrides (no leading 4-space indent so Markdown doesn't treat as code block)
+    extra = (
+        'div[data-testid="stTabs"] button{font-size:.875rem!important;font-weight:500!important;color:#475569!important;}'
+        'div[data-testid="stTabs"] button[aria-selected="true"]{color:#2563EB!important;font-weight:600!important;}'
+        '.stSpinner>div{border-top-color:#2563EB!important;}'
+        'div[data-testid="stMetricValue"]{font-size:1.6rem!important;font-weight:700!important;}'
+    )
+    st.markdown(f"<style>{css}\n{extra}</style>", unsafe_allow_html=True)
 
 # ─── Auth helpers ────────────────────────────────────────────────────────────────
 def get_current_user() -> dict | None:
