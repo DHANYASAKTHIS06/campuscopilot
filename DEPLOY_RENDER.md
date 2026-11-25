@@ -1,34 +1,23 @@
-# 🚀 Deploy CampusCopilot on Render.com — Step by Step
+# 🚀 Deploy CampusCopilot on Render.com (Free Tier — No Disk)
 
-> **Time needed:** ~15 minutes  
-> **Cost:** Free (Render free tier with 1 GB persistent disk)  
+> **Time needed:** ~10–15 minutes  
+> **Cost:** Free (Render free tier, ephemeral storage)  
 > **Result:** A public HTTPS URL like `https://campuscopilot-xxxx.onrender.com`
 
 ---
 
 ## Prerequisites
 
-Before starting, make sure you have:
-
-1. ✅ A **GitHub account** — [github.com](https://github.com)
-2. ✅ A **Render account** — [render.com](https://render.com) (sign up free with GitHub)
-3. ✅ An **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com)
+1. A **GitHub account** — [github.com](https://github.com)
+2. A **Render account** — [render.com](https://render.com) (sign up free with GitHub)
+3. An **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com)
 
 ---
 
 ## Step 1: Push Your Code to GitHub
 
-### 1a. Create a new GitHub repository
-
-1. Go to [github.com/new](https://github.com/new)
-2. Repository name: **`campuscopilot`**
-3. Set it to **Private** (recommended)
-4. Do **NOT** check "Add README" (you already have one)
-5. Click **Create repository**
-
-### 1b. Push your local code
-
-Open a terminal in your project folder and run:
+1. Create a new **Private** repository named `campuscopilot` on [github.com/new](https://github.com/new) (do **not** add a README).
+2. In your project folder (`d:\Desktop\project\campuscopilot`), run:
 
 ```bash
 git init
@@ -39,50 +28,30 @@ git remote add origin https://github.com/YOUR_USERNAME/campuscopilot.git
 git push -u origin main
 ```
 
-Replace `YOUR_USERNAME` with your actual GitHub username.
-
-> **Important:** The `.gitignore` already excludes `.env`, `secrets.toml`, database files, and uploads. No secrets will be pushed.
-
 ---
 
 ## Step 2: Create a Web Service on Render
 
 1. Go to [dashboard.render.com](https://dashboard.render.com)
 2. Click **"New +"** → **"Web Service"**
-3. Click **"Build and deploy from a Git repository"** → Next
-4. Connect your GitHub account and select your **`campuscopilot`** repository
+3. Select **"Build and deploy from a Git repository"** → **Next**
+4. Connect your GitHub account and select **`campuscopilot`**
 5. Configure:
-
-| Setting | Value |
-|---|---|
-| **Name** | `campuscopilot` |
-| **Region** | Closest to you (e.g. `Singapore` for India) |
-| **Branch** | `main` |
-| **Runtime** | **Docker** ⚠️ (not Python!) |
-| **Instance Type** | **Free** |
-
+   - **Name:** `campuscopilot`
+   - **Region:** Closest to you (e.g., `Singapore`)
+   - **Branch:** `main`
+   - **Runtime:** **Docker**
+   - **Instance Type:** **Free**
 6. Click **"Create Web Service"**
 
 ---
 
-## Step 3: Add a Persistent Disk
+## Step 3: Set Environment Variables (Skip Disks)
 
-1. In your service dashboard → **"Disks"** tab
-2. Click **"Add Disk"**:
+Since you are deploying **without a persistent disk** (Free tier), skip the Disks section and go straight to **Environment**:
 
-| Setting | Value |
-|---|---|
-| **Name** | `campuscopilot-data` |
-| **Mount Path** | `/data` |
-| **Size** | `1` GB |
-
-3. Click **"Save"**
-
----
-
-## Step 4: Set Environment Variables
-
-Go to **"Environment"** tab → add each variable:
+1. In your Render service dashboard, click **"Environment"** in the left sidebar.
+2. Click **"Add Environment Variable"** and add these variables:
 
 | Key | Value |
 |---|---|
@@ -94,37 +63,24 @@ Go to **"Environment"** tab → add each variable:
 | `ADMIN_PASSWORD` | `YourStrongPassword123` |
 | `OFFICER_PASSWORD` | `YourStrongPassword456` |
 
-Click **"Save Changes"** → Render will redeploy automatically.
+3. Click **"Save Changes"** (this triggers a redeploy automatically).
 
 ---
 
-## Step 5: Wait & Access
+## Step 4: Wait for Deployment
 
-1. Watch **"Events"** tab for build progress (~3-5 min)
-2. When you see **"Your service is live 🎉"**, click the URL at the top:
-   ```
-   https://campuscopilot-xxxx.onrender.com
-   ```
-3. Login as `admin` / your ADMIN_PASSWORD
-4. Upload college PDFs → Upload & Index tab
-5. Create a student account → test AI Chat
+1. Click **"Events"** in the left sidebar to watch the build logs.
+2. Wait 3–5 minutes until you see **"Your service is live 🎉"**.
+3. Click the public URL shown at the top of the page:
+   `https://campuscopilot-xxxx.onrender.com`
 
 ---
 
-## Updating Your App
+## Step 5: First-Time Setup & Testing
 
-```bash
-git add .
-git commit -m "update description"
-git push origin main
-```
+1. Open your public URL.
+2. Sign in as **`admin`** with the `ADMIN_PASSWORD` you set in Step 3.
+3. Go to **Documents → Upload & Index**, upload your college PDFs, and click **Upload & Process**.
+4. Sign out, register a student account under **Create Account**, and test **AI Chat**.
 
-Render auto-deploys on push. Data on persistent disk is preserved.
-
----
-
-## Notes
-
-- Free tier sleeps after 15 min of inactivity (30-60s wakeup on first request)
-- Paid tier ($7/month) keeps app always-on
-- Persistent disk survives restarts and redeploys
+> **Important Note (No Disk):** On the Free tier without a persistent disk, uploaded PDFs, student accounts, and ChromaDB data are stored in temporary container storage (`/data`). Whenever Render restarts or redeploys your service, this data resets and you will need to re-upload your PDFs.
