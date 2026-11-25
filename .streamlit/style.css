@@ -188,9 +188,9 @@ html, body, [class*="css"] {
   max-width: 75%;
 }
 .chat-bubble {
-  width: fit-content; min-width: 2.5rem; padding: .75rem 1.1rem;
+  display: inline-block; width: auto; padding: .75rem 1.1rem;
   border-radius: 16px; font-size: .88rem; line-height: 1.6;
-  box-shadow: var(--shadow); word-wrap: break-word;
+  box-shadow: var(--shadow); word-wrap: break-word; overflow-wrap: break-word;
 }
 .chat-bubble.user {
   background: var(--primary); color: white;

@@ -12,6 +12,7 @@ load_dotenv()
 
 MODEL  = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL") or os.getenv("LLM_FAST_MODEL") or "openrouter/free"
+GROQ_MODEL = os.getenv("GROQ_MODEL") or "llama-3.3-70b-versatile"
 _anthropic_client = None
 
 # ─── API Key & Provider Resolution ──────────────────────────────────────────────
@@ -23,21 +24,28 @@ def _read_env_or_secret(name: str) -> str:
             val = st.secrets.get(name)
         except Exception:
             val = None
-    return (val or "").strip().strip('"').strip("'")
+    cleaned = (val or "").strip().strip('"').strip("'")
+    if cleaned.lower().startswith("bearer "):
+        cleaned = cleaned[7:].strip()
+    return cleaned
 
 def _resolve_provider() -> tuple[str, str]:
-    """Return (provider, api_key) supporting OpenRouter and Anthropic."""
-    or_key = _read_env_or_secret("OPENROUTER_API_KEY")
-    ant_key = _read_env_or_secret("ANTHROPIC_API_KEY")
+    """Return (provider, api_key) supporting OpenRouter, Groq, and Anthropic."""
+    groq_key = _read_env_or_secret("GROQ_API_KEY")
+    or_key   = _read_env_or_secret("OPENROUTER_API_KEY")
+    ant_key  = _read_env_or_secret("ANTHROPIC_API_KEY")
 
-    # If an OpenRouter key (sk-or-...) was placed in OPENROUTER_API_KEY or ANTHROPIC_API_KEY
+    if groq_key and not groq_key.startswith("your-"):
+        return ("groq", groq_key)
+    if or_key.startswith("gsk_") or ant_key.startswith("gsk_"):
+        return ("groq", or_key if or_key.startswith("gsk_") else ant_key)
     if or_key and not or_key.startswith("your-"):
         return ("openrouter", or_key)
     if ant_key.startswith("sk-or-"):
         return ("openrouter", ant_key)
     if ant_key and not ant_key.startswith("your-"):
         return ("anthropic", ant_key)
-    raise RuntimeError("No valid API key configured. Set OPENROUTER_API_KEY or ANTHROPIC_API_KEY.")
+    raise RuntimeError("No valid API key configured. Set GROQ_API_KEY, OPENROUTER_API_KEY, or ANTHROPIC_API_KEY.")
 
 def has_api_key() -> bool:
     try:
@@ -62,7 +70,28 @@ def llm(system: str, user: str, max_tokens: int = 1500) -> str:
 def llm_messages(system: str, messages: list[dict], max_tokens: int = 1500) -> str:
     try:
         provider, key = _resolve_provider()
-        if provider == "openrouter":
+        if provider == "groq":
+            import httpx
+            model = _read_env_or_secret("GROQ_MODEL") or GROQ_MODEL
+            groq_messages = [{"role": "system", "content": system}] + messages
+            resp = httpx.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": groq_messages,
+                    "max_tokens": max_tokens,
+                },
+                timeout=60.0,
+            )
+            if resp.status_code >= 400:
+                return f"[AI Error: Groq HTTP {resp.status_code} - {resp.text[:300]}]"
+            data = resp.json()
+            return data["choices"][0]["message"]["content"] or ""
+        elif provider == "openrouter":
             import httpx
             model = _read_env_or_secret("OPENROUTER_MODEL") or _read_env_or_secret("LLM_FAST_MODEL") or OPENROUTER_MODEL
             or_messages = [{"role": "system", "content": system}] + messages
