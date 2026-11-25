@@ -20,7 +20,8 @@ load_dotenv()
 # ── Inject secrets into env (Streamlit Cloud) ───────────────────────────────
 try:
     if hasattr(st, "secrets"):
-        for key in ["ANTHROPIC_API_KEY", "CLAUDE_MODEL", "DATABASE_PATH",
+        for key in ["OPENROUTER_API_KEY", "OPENROUTER_MODEL", "LLM_FAST_MODEL",
+                    "ANTHROPIC_API_KEY", "CLAUDE_MODEL", "DATABASE_PATH",
                     "CHROMA_PERSIST_DIRECTORY", "DOCUMENT_STORAGE_PATH",
                     "ADMIN_PASSWORD", "OFFICER_PASSWORD"]:
             if key in st.secrets and not os.getenv(key):

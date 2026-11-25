@@ -11,38 +11,88 @@ import rag
 load_dotenv()
 
 MODEL  = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL") or os.getenv("LLM_FAST_MODEL") or "openrouter/free"
 _anthropic_client = None
 
-# ─── LLM client ─────────────────────────────────────────────────────────────────
+# ─── API Key & Provider Resolution ──────────────────────────────────────────────
+def _read_env_or_secret(name: str) -> str:
+    val = os.getenv(name)
+    if not val:
+        try:
+            import streamlit as st
+            val = st.secrets.get(name)
+        except Exception:
+            val = None
+    return (val or "").strip().strip('"').strip("'")
+
+def _resolve_provider() -> tuple[str, str]:
+    """Return (provider, api_key) supporting OpenRouter and Anthropic."""
+    or_key = _read_env_or_secret("OPENROUTER_API_KEY")
+    ant_key = _read_env_or_secret("ANTHROPIC_API_KEY")
+
+    # If an OpenRouter key (sk-or-...) was placed in OPENROUTER_API_KEY or ANTHROPIC_API_KEY
+    if or_key and not or_key.startswith("your-"):
+        return ("openrouter", or_key)
+    if ant_key.startswith("sk-or-"):
+        return ("openrouter", ant_key)
+    if ant_key and not ant_key.startswith("your-"):
+        return ("anthropic", ant_key)
+    raise RuntimeError("No valid API key configured. Set OPENROUTER_API_KEY or ANTHROPIC_API_KEY.")
+
+def has_api_key() -> bool:
+    try:
+        _resolve_provider()
+        return True
+    except Exception:
+        return False
+
 def _get_client():
     global _anthropic_client
     if _anthropic_client is None:
         from anthropic import Anthropic
-        key = (os.getenv("ANTHROPIC_API_KEY") or _secrets_key() or "").strip().strip('"').strip("'")
-        if not key or key.startswith("your-"):
-            raise RuntimeError("ANTHROPIC_API_KEY is not configured with a valid key.")
+        provider, key = _resolve_provider()
+        if provider != "anthropic":
+            raise RuntimeError("Anthropic client requested for non-Anthropic provider.")
         _anthropic_client = Anthropic(api_key=key)
     return _anthropic_client
-
-def _secrets_key():
-    try:
-        import streamlit as st
-        return st.secrets.get("ANTHROPIC_API_KEY")
-    except Exception:
-        return None
 
 def llm(system: str, user: str, max_tokens: int = 1500) -> str:
     return llm_messages(system, [{"role": "user", "content": user}], max_tokens)
 
 def llm_messages(system: str, messages: list[dict], max_tokens: int = 1500) -> str:
     try:
-        client = _get_client()
-        r = client.messages.create(
-            model=MODEL, max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-        )
-        return "".join(b.text for b in r.content if b.type == "text")
+        provider, key = _resolve_provider()
+        if provider == "openrouter":
+            import httpx
+            model = _read_env_or_secret("OPENROUTER_MODEL") or _read_env_or_secret("LLM_FAST_MODEL") or OPENROUTER_MODEL
+            or_messages = [{"role": "system", "content": system}] + messages
+            resp = httpx.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": os.getenv("APP_BASE_URL", "https://campuscopilot.onrender.com"),
+                    "X-Title": "CampusCopilot",
+                },
+                json={
+                    "model": model,
+                    "messages": or_messages,
+                    "max_tokens": max_tokens,
+                },
+                timeout=60.0,
+            )
+            if resp.status_code >= 400:
+                return f"[AI Error: OpenRouter HTTP {resp.status_code} - {resp.text[:300]}]"
+            data = resp.json()
+            return data["choices"][0]["message"]["content"] or ""
+        else:
+            client = _get_client()
+            r = client.messages.create(
+                model=MODEL, max_tokens=max_tokens,
+                system=system,
+                messages=messages,
+            )
+            return "".join(b.text for b in r.content if b.type == "text")
     except Exception as e:
         return f"[AI Error: {e}]"
 

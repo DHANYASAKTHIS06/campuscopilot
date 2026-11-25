@@ -99,11 +99,8 @@ def show(user: dict):
 
     if submitted and q.strip():
         # Check API key
-        import os
-        key = os.getenv("ANTHROPIC_API_KEY") or \
-              (st.secrets.get("ANTHROPIC_API_KEY") if hasattr(st, "secrets") else None)
-        if not key:
-            st.error("⚠️ ANTHROPIC_API_KEY is not configured. Please contact the administrator.")
+        if not agents.has_api_key():
+            st.error("⚠️ AI API key is not configured. Set OPENROUTER_API_KEY or ANTHROPIC_API_KEY.")
             st.stop()
 
         # Add user message

@@ -59,10 +59,7 @@ def show(user: dict):
             st.error("Please fill in letter type and subject.")
             return
 
-        import os
-        key = os.getenv("ANTHROPIC_API_KEY") or \
-              (st.secrets.get("ANTHROPIC_API_KEY") if hasattr(st, "secrets") else None)
-        if not key:
+        if not agents.has_api_key():
             st.error("⚠️ AI not configured. Contact administrator.")
             return
 

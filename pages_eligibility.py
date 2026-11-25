@@ -67,10 +67,7 @@ def show(user: dict):
                                           use_container_width=True)
 
     if check_btn and q.strip():
-        import os
-        key = os.getenv("ANTHROPIC_API_KEY") or \
-              (st.secrets.get("ANTHROPIC_API_KEY") if hasattr(st, "secrets") else None)
-        if not key:
+        if not agents.has_api_key():
             st.error("⚠️ AI is not configured. Contact administrator.")
             st.stop()
 
