@@ -18,9 +18,9 @@ def _get_client():
     global _anthropic_client
     if _anthropic_client is None:
         from anthropic import Anthropic
-        key = os.getenv("ANTHROPIC_API_KEY") or _secrets_key()
-        if not key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not configured.")
+        key = (os.getenv("ANTHROPIC_API_KEY") or _secrets_key() or "").strip().strip('"').strip("'")
+        if not key or key.startswith("your-"):
+            raise RuntimeError("ANTHROPIC_API_KEY is not configured with a valid key.")
         _anthropic_client = Anthropic(api_key=key)
     return _anthropic_client
 
@@ -32,12 +32,15 @@ def _secrets_key():
         return None
 
 def llm(system: str, user: str, max_tokens: int = 1500) -> str:
+    return llm_messages(system, [{"role": "user", "content": user}], max_tokens)
+
+def llm_messages(system: str, messages: list[dict], max_tokens: int = 1500) -> str:
     try:
         client = _get_client()
         r = client.messages.create(
             model=MODEL, max_tokens=max_tokens,
             system=system,
-            messages=[{"role": "user", "content": user}],
+            messages=messages,
         )
         return "".join(b.text for b in r.content if b.type == "text")
     except Exception as e:
@@ -64,24 +67,90 @@ def fmt(chunks: list[dict]) -> str:
         for i, c in enumerate(chunks)
     )
 
-# ─── AGENT 1: Orchestrator ───────────────────────────────────────────────────────
-def orchestrator(q: str) -> dict:
-    """Classify the query: intent, language, needs_plan, needs_eligibility."""
-    system = (
-        'You are a query classifier for a university AI assistant. '
-        'Classify the student query. Reply ONLY valid JSON:\n'
-        '{"goal":str, "needs_plan":bool, "needs_eligibility":bool, '
-        '"intent":"general|eligibility|planning|procedure|deadline|scholarship|helpdesk", '
-        '"language":"english|tamil|hindi|telugu"}'
-    )
-    out = llm(system, q, 300)
-    return parse_json(out, {
-        "goal": q, "needs_plan": True, "needs_eligibility": False,
-        "intent": "general", "language": "english"
-    })
+MISSING_INFO_MSG = "I couldn't find this information in the uploaded college documents."
 
-# ─── AGENT 2: Knowledge Agent ────────────────────────────────────────────────────
-def knowledge_agent(q: str, chunks: list[dict], language: str = "english") -> str:
+def _format_history(chat_history: list[dict] | None, limit: int = 6) -> list[dict]:
+    """Convert recent UI chat_messages into Anthropic API messages."""
+    if not chat_history:
+        return []
+    msgs = []
+    for m in chat_history[-limit:]:
+        role = "assistant" if m.get("role") == "ai" else "user"
+        content = (m.get("content") or "").strip()
+        if not content or content.startswith("[AI Error:"):
+            continue
+        # Ensure alternating roles for Anthropic API
+        if msgs and msgs[-1]["role"] == role:
+            msgs[-1]["content"] += "\n" + content
+        else:
+            msgs.append({"role": role, "content": content})
+    # Anthropic requires first message to be from user
+    while msgs and msgs[0]["role"] != "user":
+        msgs.pop(0)
+    return msgs
+
+# ─── AGENT 1: Orchestrator ───────────────────────────────────────────────────────
+def orchestrator(q: str, chat_history: list[dict] | None = None) -> dict:
+    """
+    Classify the query into:
+      mode: "conversation" (greetings, casual chat, general knowledge) vs "rag" (institutional/document queries)
+      intent, language, needs_plan, needs_eligibility, search_query
+    """
+    history_snippet = ""
+    if chat_history:
+        recent = [
+            f"{'Student' if m.get('role') == 'user' else 'AI'}: {(m.get('content') or '')[:200]}"
+            for m in chat_history[-4:]
+        ]
+        if recent:
+            history_snippet = "Recent conversation:\n" + "\n".join(recent) + "\n\n"
+
+    system = (
+        "You are the Orchestrator Agent for CampusCopilot, a university AI assistant.\n"
+        "Classify the user's message into one of two modes:\n"
+        '1. "conversation": greetings ("Hi", "Hello", "Hey", "Good morning"), thanks, '
+        "casual small talk, general non-college knowledge questions, or follow-ups to casual chat.\n"
+        '2. "rag": ANY question about college rules, scholarships, fees, exams, deadlines, '
+        "hostel policies, certificates, campus procedures, eligibility, documents, or follow-ups "
+        "referring to previously retrieved college documents.\n"
+        "IMPORTANT: For ambiguous institutional questions, ALWAYS choose \"rag\".\n\n"
+        "Reply ONLY valid JSON:\n"
+        '{"mode":"conversation|rag", "intent":"greeting|casual|general_knowledge|college_factual|'
+        'document_specific|eligibility|planning|followup_rag", '
+        '"goal":str, "search_query":str, "needs_plan":bool, "needs_eligibility":bool, '
+        '"language":"english|tamil|hindi|telugu"}\n'
+        "Rules:\n"
+        "- If mode is \"conversation\", set needs_plan=false and needs_eligibility=false.\n"
+        "- For follow-up RAG questions (e.g. 'What is the deadline for that?'), rewrite search_query "
+        "as a standalone search query using the recent conversation."
+    )
+    out = llm(system, f"{history_snippet}Current message: {q}", 350)
+    if out.startswith("[AI Error:"):
+        return {
+            "mode": "rag", "intent": "college_factual", "goal": q,
+            "search_query": q, "needs_plan": False, "needs_eligibility": False,
+            "language": "english", "error": out,
+        }
+    parsed = parse_json(out, None)
+    if not isinstance(parsed, dict):
+        return {
+            "mode": "rag", "intent": "college_factual", "goal": q,
+            "search_query": q, "needs_plan": False, "needs_eligibility": False,
+            "language": "english",
+        }
+    parsed.setdefault("mode", "rag")
+    parsed.setdefault("intent", "college_factual")
+    parsed.setdefault("goal", q)
+    parsed.setdefault("search_query", q)
+    parsed.setdefault("needs_plan", False)
+    parsed.setdefault("needs_eligibility", False)
+    parsed.setdefault("language", "english")
+    return parsed
+
+# ─── Normal Conversation Agent ──────────────────────────────────────────────────
+def conversation_agent(q: str, chat_history: list[dict] | None = None,
+                       language: str = "english") -> str:
+    """Handle greetings, casual conversation, and general non-institutional queries."""
     lang_instruction = {
         "tamil":   "Respond in Tamil language.",
         "hindi":   "Respond in Hindi language.",
@@ -90,13 +159,52 @@ def knowledge_agent(q: str, chunks: list[dict], language: str = "english") -> st
     }.get(language, "Respond in English.")
 
     system = (
-        f"You are a helpful university campus assistant. {lang_instruction}\n"
-        "Answer ONLY using the numbered context below. "
-        "Cite sources using [1], [2], etc. after each relevant statement. "
-        "If the context does not contain the answer, say so plainly — never invent facts, "
-        "rules, fees, dates, or eligibility criteria."
+        f"You are CampusCopilot, a friendly and helpful university AI assistant. {lang_instruction}\n"
+        "You are currently in Normal Conversation Mode.\n"
+        "- For greetings (e.g. Hi, Hello, Hey, Good morning), respond warmly and briefly, e.g. "
+        "'Hello! Welcome to CampusCopilot. How can I help you today?'\n"
+        "- For casual or general conversational questions, respond politely, naturally, and concisely.\n"
+        "- Maintain conversation context from prior turns.\n"
+        "- Never invent specific college policies, fees, or deadlines; if the user asks about "
+        "college-specific rules, invite them to ask directly so you can check the official documents."
     )
-    return llm(system, f"Context:\n{fmt(chunks)}\n\nQuestion: {q}")
+    msgs = _format_history(chat_history, limit=8)
+    if msgs and msgs[-1]["role"] == "user":
+        msgs[-1]["content"] += "\n" + q
+    else:
+        msgs.append({"role": "user", "content": q})
+    return llm_messages(system, msgs, max_tokens=800)
+
+# ─── AGENT 2: Knowledge Agent (Document-Based RAG) ──────────────────────────────
+def knowledge_agent(q: str, chunks: list[dict], language: str = "english",
+                    chat_history: list[dict] | None = None) -> str:
+    lang_instruction = {
+        "tamil":   "Respond in Tamil language.",
+        "hindi":   "Respond in Hindi language.",
+        "telugu":  "Respond in Telugu language.",
+        "english": "Respond in English.",
+    }.get(language, "Respond in English.")
+
+    history_block = ""
+    if chat_history:
+        recent = [
+            f"{'Student' if m.get('role') == 'user' else 'AI'}: {(m.get('content') or '')[:250]}"
+            for m in chat_history[-4:]
+        ]
+        if recent:
+            history_block = "Recent conversation context:\n" + "\n".join(recent) + "\n\n"
+
+    system = (
+        f"You are a helpful university campus assistant. {lang_instruction}\n"
+        "Answer STRICTLY using ONLY the numbered document context below.\n"
+        "Cite sources using [1], [2], etc. after each relevant statement.\n"
+        "CRITICAL RULE FOR MISSING INFORMATION:\n"
+        "If the retrieved document context does NOT contain the answer to the user's question, "
+        f"respond ONLY with: \"{MISSING_INFO_MSG}\" (in {language} if non-English is requested).\n"
+        "NEVER use general knowledge to fill in missing college policies, fees, dates, or rules. "
+        "NEVER invent numbers, amounts, deadlines, or eligibility conditions."
+    )
+    return llm(system, f"{history_block}Context:\n{fmt(chunks)}\n\nQuestion: {q}")
 
 # ─── AGENT 3: Eligibility Agent ──────────────────────────────────────────────────
 def eligibility_agent(q: str, chunks: list[dict], profile: str) -> dict:
@@ -208,50 +316,125 @@ def application_letter_agent(letter_type: str, student_info: dict,
     return llm(system, prompt, 1200)
 
 # ─── Main Pipeline ───────────────────────────────────────────────────────────────
-def run(q: str, profile: str = "", user_id=None) -> dict:
+def run(q: str, profile: str = "", user_id=None,
+        chat_history: list[dict] | None = None,
+        language_override: str | None = None) -> dict:
     """
-    Full multi-agent pipeline.
-    Returns: {answer, eligibility, plan, verification, chunks, trace, language, intent, error}
+    Full multi-agent pipeline with two modes:
+      - Normal Conversation Mode (greetings, casual chat, general knowledge)
+      - Document-Based RAG Mode (hybrid BM25 + ChromaDB + RRF + reranking)
     """
     trace = []
     def log(agent, detail):
         trace.append({"agent": agent, "detail": str(detail)})
 
-    # 1. Orchestrator
+    # 1. Orchestrator (intelligent query classification)
     try:
-        plan_info = orchestrator(q)
+        plan_info = orchestrator(q, chat_history=chat_history)
     except Exception as e:
-        plan_info = {"goal": q, "needs_plan": True, "needs_eligibility": False,
-                     "intent": "general", "language": "english"}
+        plan_info = {
+            "mode": "rag", "goal": q, "search_query": q,
+            "needs_plan": False, "needs_eligibility": False,
+            "intent": "college_factual", "language": "english",
+        }
         log("Orchestrator", f"Error: {e}")
+
     log("Orchestrator", plan_info)
-    language = plan_info.get("language", "english")
-    intent   = plan_info.get("intent", "general")
+    if plan_info.get("error"):
+        return {
+            "answer": plan_info["error"],
+            "eligibility": None, "plan": None, "verification": None,
+            "chunks": [], "trace": trace,
+            "language": language_override or "english",
+            "intent": plan_info.get("intent", "error"),
+            "mode": "error",
+        }
 
-    # 2. Retrieval
+    mode         = plan_info.get("mode", "rag")
+    language     = language_override or plan_info.get("language", "english")
+    intent       = plan_info.get("intent", "college_factual")
+    search_query = plan_info.get("search_query") or q
+
+    # ── MODE 1: Normal Conversation Mode ───────────────────────────────────────
+    if mode == "conversation":
+        answer = conversation_agent(q, chat_history=chat_history, language=language)
+        log("Conversation Agent", f"Responded in {language} (no document search)")
+        return {
+            "answer":       answer,
+            "eligibility":  None,
+            "plan":         None,
+            "verification": None,
+            "chunks":       [],
+            "trace":        trace,
+            "language":     language,
+            "intent":       intent,
+            "mode":         "conversation",
+        }
+
+    # ── MODE 2: Document-Based RAG Mode ────────────────────────────────────────
     try:
-        chunks = rag.search(q, 6)
+        total_indexed = rag.count()
     except Exception as e:
-        chunks = []
-        log("Retrieval", f"Error: {e}")
-    log("Retrieval", f"{len(chunks)} chunks from: " +
-        ", ".join(sorted({f"{c['source']} p.{c['page']}" for c in chunks})))
+        log("Retrieval", f"Index check error: {e}")
+        return {
+            "answer": f"⚠️ Document search failed due to a technical error: {e}",
+            "eligibility": None, "plan": None, "verification": None,
+            "chunks": [], "trace": trace,
+            "language": language, "intent": intent, "mode": "rag",
+        }
 
-    if not chunks:
+    if total_indexed == 0:
         return {
             "answer": (
                 "⚠️ No documents are indexed yet. "
                 "Please ask an administrator to upload and index college documents first."
             ),
-            "eligibility": None, "plan": None,
-            "verification": {"verified": True, "issues": [], "summary": "No documents."},
+            "eligibility": None, "plan": None, "verification": None,
             "chunks": [], "trace": trace,
-            "language": language, "intent": intent,
+            "language": language, "intent": intent, "mode": "rag",
+        }
+
+    try:
+        chunks = rag.search(search_query, 6)
+    except Exception as e:
+        log("Retrieval", f"Search error: {e}")
+        return {
+            "answer": f"⚠️ Document search failed due to a technical error: {e}",
+            "eligibility": None, "plan": None, "verification": None,
+            "chunks": [], "trace": trace,
+            "language": language, "intent": intent, "mode": "rag",
+        }
+
+    log("Retrieval", f"{len(chunks)} chunks from: " +
+        ", ".join(sorted({f"{c['source']} p.{c['page']}" for c in chunks})))
+
+    if not chunks:
+        return {
+            "answer": MISSING_INFO_MSG,
+            "eligibility": None, "plan": None, "verification": None,
+            "chunks": [], "trace": trace,
+            "language": language, "intent": intent, "mode": "rag",
         }
 
     # 3. Knowledge agent
-    answer = knowledge_agent(q, chunks, language)
+    answer = knowledge_agent(q, chunks, language, chat_history=chat_history)
     log("Knowledge Agent", "Answer drafted")
+
+    if answer.startswith("[AI Error:"):
+        return {
+            "answer": answer, "eligibility": None, "plan": None,
+            "verification": None, "chunks": chunks, "trace": trace,
+            "language": language, "intent": intent, "mode": "rag",
+        }
+
+    # Missing information check — do not show irrelevant citations or fake verification
+    if MISSING_INFO_MSG.lower() in answer.lower():
+        log("Knowledge Agent", "Information not found in uploaded documents")
+        return {
+            "answer": answer, "eligibility": None, "plan": None,
+            "verification": None, "chunks": [], "trace": trace,
+            "language": language, "intent": intent, "mode": "rag",
+        }
 
     # 4. Eligibility agent (conditional)
     elig = None
@@ -284,8 +467,9 @@ def run(q: str, profile: str = "", user_id=None) -> dict:
     if not ver.get("verified", True) and ver.get("issues"):
         try:
             revised = revision_agent(answer, chunks, ver["issues"])
-            answer  = revised
-            log("Revision Agent", f"Answer revised — {len(ver['issues'])} issue(s) addressed")
+            if not revised.startswith("[AI Error:"):
+                answer = revised
+                log("Revision Agent", f"Answer revised — {len(ver['issues'])} issue(s) addressed")
         except Exception as e:
             log("Revision Agent", f"Error: {e}")
 
@@ -298,4 +482,5 @@ def run(q: str, profile: str = "", user_id=None) -> dict:
         "trace":        trace,
         "language":     language,
         "intent":       intent,
+        "mode":         "rag",
     }

@@ -247,9 +247,21 @@ def render_eligibility(elig: dict):
         </div>""", unsafe_allow_html=True)
 
 def render_sources(chunks: list[dict]):
-    """Render collapsible source references."""
+    """Render concise source line + collapsible source references."""
     if not chunks:
         return
+    # Show unique Document, Page pairs concisely
+    seen = []
+    for c in chunks:
+        label = f"{c['source']}, Page {c['page']}"
+        if label not in seen:
+            seen.append(label)
+    st.markdown(
+        '<div style="font-size:.8rem;color:#475569;margin:.35rem 0 .4rem">'
+        '<strong>Source:</strong> ' + " &nbsp;|&nbsp; ".join(seen[:4]) +
+        '</div>',
+        unsafe_allow_html=True,
+    )
     with st.expander(f"📚 Sources ({len(chunks)} references)"):
         for i, c in enumerate(chunks, 1):
             st.markdown(f"""

@@ -114,11 +114,18 @@ def show(user: dict):
                     "English": "english", "Auto-detect": None}
         lang_override = lang_map.get(language_hint)
 
-        with st.spinner("🤖 Agents are working on your question..."):
+        # Pass prior messages (excluding the one just appended) for multi-turn context
+        prior_history = messages[:-1]
+
+        with st.spinner("🤖 Thinking..."):
             try:
-                result = agents.run(q.strip(), profile=profile, user_id=uid)
-                if lang_override:
-                    result["language"] = lang_override
+                result = agents.run(
+                    q.strip(),
+                    profile=profile,
+                    user_id=uid,
+                    chat_history=prior_history,
+                    language_override=lang_override,
+                )
                 answer = result["answer"]
             except Exception as e:
                 result = {"answer": f"❌ Error: {e}", "chunks": [], "verification": None,
