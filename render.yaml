@@ -9,7 +9,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false                 # Set your private Gemini API key in Render Dashboard
       - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: DATABASE_PATH
         value: /data/campus.db
       - key: CHROMA_PERSIST_DIRECTORY

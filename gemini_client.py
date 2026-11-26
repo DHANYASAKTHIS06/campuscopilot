@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 REQUEST_TIMEOUT_MS = 60_000  # 60 seconds
 MAX_RETRIES = 2
 

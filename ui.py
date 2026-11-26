@@ -206,6 +206,7 @@ def status_badge(status: str) -> str:
 
 
 def render_chat_message(role: str, content: str, timestamp: str = ""):
+    ts_html = f'<div class="chat-time">{timestamp}</div>' if timestamp else ""
     if role == "user":
         initials = st.session_state.get("user", {}).get("full_name", "U")
         initials = "".join(w[0].upper() for w in initials.split()[:2]) or "U"
@@ -214,7 +215,7 @@ def render_chat_message(role: str, content: str, timestamp: str = ""):
             f'<div class="chat-msg user">'
             f'<div class="chat-avatar user-av">{initials}</div>'
             f'<div><div class="chat-bubble user">{safe_content}</div>'
-            f'{"<div class=\'chat-time\'>" + timestamp + "</div>" if timestamp else ""}'
+            f'{ts_html}'
             f'</div></div>',
             unsafe_allow_html=True,
         )
@@ -227,7 +228,7 @@ def render_chat_message(role: str, content: str, timestamp: str = ""):
             f'<div class="chat-msg">'
             f'<div class="chat-avatar ai-av">✨</div>'
             f'<div><div class="chat-bubble ai">{formatted}</div>'
-            f'{"<div class=\'chat-time\'>" + timestamp + "</div>" if timestamp else ""}'
+            f'{ts_html}'
             f'</div></div>',
             unsafe_allow_html=True,
         )

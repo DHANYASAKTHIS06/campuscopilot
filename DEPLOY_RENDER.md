@@ -7,7 +7,7 @@ Remove any old `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` varia
 | Key | Value |
 |---|---|
 | `GEMINI_API_KEY` | `YOUR_NEW_PRIVATE_API_KEY` |
-| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
 | `DATABASE_PATH` | `/data/campus.db` |
 | `CHROMA_PERSIST_DIRECTORY` | `/data/chroma` |
 | `DOCUMENT_STORAGE_PATH` | `/data/uploads` |
@@ -22,7 +22,7 @@ Remove any old `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` varia
    git commit -m "Upgrade to AcadFlow with Google Gemini"
    git push origin main
    ```
-2. In **Render Dashboard → Environment**, add `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-2.5-flash` and click **Save Changes**.
+2. In **Render Dashboard → Environment**, add `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.5-flash-lite` and click **Save Changes**.
 3. Wait 2–4 minutes for the Docker build to finish.
 4. Open your Render URL, sign in as `admin`, and upload your institutional PDFs under **Document Manager**.
 

@@ -7,7 +7,7 @@
 
 ## ✨ Features
 
-- **Google Gemini AI (`google-genai`):** Centralized Gemini configuration (`gemini-2.5-flash`) with timeout, retry, quota, and error handling.
+- **Google Gemini AI (`google-genai`):** Centralized Gemini configuration (`gemini-3.5-flash-lite`) with timeout, retry, quota, and error handling.
 - **Dual-Mode Conversational AI:**
   - *Normal Conversation Mode:* Natural greetings and casual follow-up chats without unnecessary document searches.
   - *Document-Based RAG Mode:* Strict institutional answering with clickable citations and page numbers.
@@ -61,7 +61,7 @@ See [DEPLOY_RENDER.md](DEPLOY_RENDER.md) for full step-by-step instructions.
 | Key | Value |
 |---|---|
 | `GEMINI_API_KEY` | `YOUR_NEW_PRIVATE_API_KEY` |
-| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
 | `DATABASE_PATH` | `/data/campus.db` |
 | `CHROMA_PERSIST_DIRECTORY` | `/data/chroma` |
 | `DOCUMENT_STORAGE_PATH` | `/data/uploads` |
