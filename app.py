@@ -1,9 +1,7 @@
 """
-CampusCopilot — Main Application Entry Point
+AcadFlow — Main Application Entry Point
 Multi-role, multi-page Streamlit application.
-Routes: login → student/admin/officer dashboards.
 """
-# SQLite compatibility shim for Streamlit Cloud (must be first)
 try:
     __import__("pysqlite3")
     import sys
@@ -17,13 +15,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Inject secrets into env (Streamlit Cloud) ───────────────────────────────
+# Inject Streamlit secrets into env if running on Streamlit Cloud
 try:
     if hasattr(st, "secrets"):
-        for key in ["OPENROUTER_API_KEY", "OPENROUTER_MODEL", "LLM_FAST_MODEL",
-                    "ANTHROPIC_API_KEY", "CLAUDE_MODEL", "DATABASE_PATH",
-                    "CHROMA_PERSIST_DIRECTORY", "DOCUMENT_STORAGE_PATH",
-                    "ADMIN_PASSWORD", "OFFICER_PASSWORD"]:
+        for key in [
+            "GEMINI_API_KEY", "GEMINI_MODEL",
+            "DATABASE_PATH", "CHROMA_PERSIST_DIRECTORY", "DOCUMENT_STORAGE_PATH",
+            "ADMIN_PASSWORD", "OFFICER_PASSWORD",
+        ]:
             if key in st.secrets and not os.getenv(key):
                 os.environ[key] = st.secrets[key]
 except Exception:
@@ -31,49 +30,44 @@ except Exception:
 
 import db
 
-# ── Page config (must be first Streamlit call) ───────────────────────────────
 st.set_page_config(
-    page_title="CampusCopilot",
+    page_title="AcadFlow — Intelligence That Moves Academia Forward.",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={"About": "CampusCopilot — AI-powered campus assistant."},
+    menu_items={
+        "About": "AcadFlow — Intelligence That Moves Academia Forward."
+    },
 )
 
-# ── Database init ─────────────────────────────────────────────────────────────
 db.init()
 
-# ── Session state defaults ────────────────────────────────────────────────────
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "login"
 if "auth_token" not in st.session_state:
     st.session_state["auth_token"] = None
 
-# ── Auth helper ───────────────────────────────────────────────────────────────
+
 def get_user():
     token = st.session_state.get("auth_token")
     if not token:
         return None
     return db.get_session(token)
 
-# ── Route to page ─────────────────────────────────────────────────────────────
+
 user = get_user()
 page = st.session_state.get("current_page", "login")
 
-# If not logged in → always show login
 if not user:
     st.session_state["current_page"] = "login"
     import pages_login
     pages_login.show()
     st.stop()
 
-# ── Logged in: role-based routing ─────────────────────────────────────────────
 role = user.get("role", "student")
-
-# Keep fresh user data
 st.session_state["user"] = user
 
-# ── STUDENT ROUTES ─────────────────────────────────────────────────────────────
+# ── Role-based Routing (enforced server-side) ─────────────────────────────────
 if role == "student":
     if page in ("login", "dashboard"):
         import pages_student
@@ -96,21 +90,30 @@ if role == "student":
     elif page == "profile":
         import pages_profile
         pages_profile.show(user)
+    elif page == "about":
+        import pages_about
+        pages_about.show(user)
     else:
         import pages_student
         pages_student.show(user)
 
-# ── ADMIN ROUTES ───────────────────────────────────────────────────────────────
 elif role == "admin":
-    if page in ("login", "dashboard", "documents", "upload",
-                "students", "tickets", "settings"):
+    if page in ("login", "dashboard"):
         import pages_admin
-        pages_admin.show(user)
+        pages_admin.show(user, section="dashboard")
+    elif page in ("documents", "upload", "announcements", "students", "tickets", "settings"):
+        import pages_admin
+        pages_admin.show(user, section=page)
+    elif page == "profile":
+        import pages_profile
+        pages_profile.show(user)
+    elif page == "about":
+        import pages_about
+        pages_about.show(user)
     else:
         import pages_admin
-        pages_admin.show(user)
+        pages_admin.show(user, section="dashboard")
 
-# ── OFFICER ROUTES ─────────────────────────────────────────────────────────────
 elif role == "officer":
     if page in ("login", "dashboard", "tickets"):
         import pages_officer
@@ -118,6 +121,9 @@ elif role == "officer":
     elif page == "profile":
         import pages_profile
         pages_profile.show(user)
+    elif page == "about":
+        import pages_about
+        pages_about.show(user)
     else:
         import pages_officer
         pages_officer.show(user)

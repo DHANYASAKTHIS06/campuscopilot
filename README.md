@@ -1,46 +1,83 @@
-# 🎓 CampusCopilot
+# 🎓 AcadFlow
+### Intelligence That Moves Academia Forward.
 
-AI-powered multi-agent campus assistant with RAG, eligibility checking, planning, helpdesk, and application letter generation.
+**AcadFlow** is an AI-powered institutional intelligence platform that simplifies academic information, document intelligence, eligibility assessment, planning, and institutional support.
 
-**Tech:** Streamlit · Anthropic Claude · ChromaDB · SQLite · PyMuPDF
+---
 
-## Quick Start (Local)
+## ✨ Features
+
+- **Google Gemini AI (`google-genai`):** Centralized Gemini configuration (`gemini-2.5-flash`) with timeout, retry, quota, and error handling.
+- **Dual-Mode Conversational AI:**
+  - *Normal Conversation Mode:* Natural greetings and casual follow-up chats without unnecessary document searches.
+  - *Document-Based RAG Mode:* Strict institutional answering with clickable citations and page numbers.
+- **Hybrid RAG Pipeline:** Combines **BM25** keyword search + **ChromaDB** vector search using **Reciprocal Rank Fusion (RRF)** and **lexical reranking**.
+- **Multi-Agent Architecture:** Orchestrator, Hybrid Retrieval, Knowledge & Synthesis, Eligibility, Planning, Verification, Revision, Recovery, Application Letter Drafting, and Helpdesk Officer Assistant.
+- **Role-Based Dashboards:** Dedicated experiences for **Students**, **Administrators**, and **Helpdesk Officers**.
+- **Security & Trust:** PBKDF2 password hashing, 7-day session tokens, server-side role authorization, PDF validation, and prompt-injection scanning.
+
+---
+
+## 🛠️ Technology Stack
+
+- **Frontend / UI:** Streamlit (custom SaaS design system)
+- **LLM Provider:** Google Gemini (`google-genai`)
+- **Vector Store & Search:** ChromaDB + BM25 + RRF + Lexical Reranking
+- **PDF Processing:** PyMuPDF (`pymupdf`) + ReportLab A4 PDF export
+- **Database:** SQLite (WAL mode)
+
+---
+
+## 🚀 Local Development
 
 ```bash
-# 1. Clone & enter
-git clone https://github.com/YOUR_USERNAME/campuscopilot.git
-cd campuscopilot
-
-# 2. Virtual environment
+# 1. Create and activate virtual environment
 python -m venv venv
 venv\Scripts\activate          # Windows
-# source venv/bin/activate     # macOS/Linux
+# source venv/bin/activate     # macOS / Linux
 
-# 3. Install dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 4. Set your API key
-set ANTHROPIC_API_KEY=sk-ant-your-key     # Windows
-# export ANTHROPIC_API_KEY=sk-ant-your-key # macOS/Linux
+# 3. Configure environment variables
+copy .env.example .env         # Windows (or cp .env.example .env)
+# Edit .env and set GEMINI_API_KEY=YOUR_NEW_PRIVATE_API_KEY
 
-# 5. Run
+# 4. Run AcadFlow
 streamlit run app.py
 ```
 
-**Default login:** `admin` / `admin123` · `officer` / `officer123`
+Default credentials (override via `ADMIN_PASSWORD` / `OFFICER_PASSWORD`):
+- **Admin:** `admin` / `admin123`
+- **Helpdesk Officer:** `officer` / `officer123`
 
-## Deploy to Render.com
+---
 
-See the step-by-step guide in `DEPLOY_RENDER.md`.
+## ☁️ Render Deployment
 
-## Features
+See [DEPLOY_RENDER.md](DEPLOY_RENDER.md) for full step-by-step instructions.
 
-- 🤖 9 AI agents: Orchestrator, Knowledge, Eligibility, Planning, Verification, Revision, Recovery, Helpdesk, Application Letter
-- 📚 RAG pipeline with citation-backed answers
-- 🌐 Multilingual support (English, Tamil, Hindi, Telugu)
-- 👥 Role-based dashboards: Student, Admin, Helpdesk Officer
-- 🎫 Helpdesk ticket system with AI-suggested responses
-- 📝 Application letter studio with PDF export
-- 🔒 Secure authentication with PBKDF2 password hashing
-- 📄 PDF upload, security scanning, and document indexing
-"# campuscopilot" 
+### Required Render Environment Variables
+| Key | Value |
+|---|---|
+| `GEMINI_API_KEY` | `YOUR_NEW_PRIVATE_API_KEY` |
+| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `DATABASE_PATH` | `/data/campus.db` |
+| `CHROMA_PERSIST_DIRECTORY` | `/data/chroma` |
+| `DOCUMENT_STORAGE_PATH` | `/data/uploads` |
+| `ADMIN_PASSWORD` | Strong password |
+| `OFFICER_PASSWORD` | Strong password |
+
+*(For persistent storage across redeploys, attach a Render Persistent Disk mounted at `/data` on a paid plan; on the Free tier, `/data` uses temporary container storage.)*
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run retrieval evaluation
+python eval/run_eval.py --mode retrieval
+
+# Run full pipeline evaluation
+python eval/run_eval.py --mode full --limit 10
+```

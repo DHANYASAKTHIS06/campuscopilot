@@ -1,12 +1,13 @@
-"""CampusCopilot — Eligibility Checker page"""
+"""AcadFlow — Eligibility Checker"""
 import streamlit as st
 import agents, rag, db, ui
 
 def show(user: dict):
     ui.inject_css()
     ui.render_sidebar(user)
-    ui.page_header("🎯 Eligibility Checker",
-                   "Check your eligibility for scholarships, certificates, and programs.")
+    ui.page_header("Eligibility Checker",
+                   "Evaluate your academic profile against institutional scholarship and program criteria.",
+                   section="Workspace")
 
     uid = user["id"]
 
@@ -89,3 +90,5 @@ def show(user: dict):
 
                 # Save to chat history
                 db.save_chat(uid, q, answer, sources=chunks)
+
+    ui.render_footer()

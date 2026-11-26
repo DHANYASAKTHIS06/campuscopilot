@@ -1,86 +1,29 @@
-# 🚀 Deploy CampusCopilot on Render.com (Free Tier — No Disk)
+# 🚀 Deploy AcadFlow on Render.com
 
-> **Time needed:** ~10–15 minutes  
-> **Cost:** Free (Render free tier, ephemeral storage)  
-> **Result:** A public HTTPS URL like `https://campuscopilot-xxxx.onrender.com`
+## Environment Variables (Render Dashboard → Environment)
 
----
-
-## Prerequisites
-
-1. A **GitHub account** — [github.com](https://github.com)
-2. A **Render account** — [render.com](https://render.com) (sign up free with GitHub)
-3. An **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com)
-
----
-
-## Step 1: Push Your Code to GitHub
-
-1. Create a new **Private** repository named `campuscopilot` on [github.com/new](https://github.com/new) (do **not** add a README).
-2. In your project folder (`d:\Desktop\project\campuscopilot`), run:
-
-```bash
-git init
-git add .
-git commit -m "CampusCopilot - production ready"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/campuscopilot.git
-git push -u origin main
-```
-
----
-
-## Step 2: Create a Web Service on Render
-
-1. Go to [dashboard.render.com](https://dashboard.render.com)
-2. Click **"New +"** → **"Web Service"**
-3. Select **"Build and deploy from a Git repository"** → **Next**
-4. Connect your GitHub account and select **`campuscopilot`**
-5. Configure:
-   - **Name:** `campuscopilot`
-   - **Region:** Closest to you (e.g., `Singapore`)
-   - **Branch:** `main`
-   - **Runtime:** **Docker**
-   - **Instance Type:** **Free**
-6. Click **"Create Web Service"**
-
----
-
-## Step 3: Set Environment Variables (Skip Disks)
-
-Since you are deploying **without a persistent disk** (Free tier), skip the Disks section and go straight to **Environment**:
-
-1. In your Render service dashboard, click **"Environment"** in the left sidebar.
-2. Click **"Add Environment Variable"** and add these variables:
+Remove any old `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` / `GROQ_API_KEY` variables and configure:
 
 | Key | Value |
 |---|---|
-| `ANTHROPIC_API_KEY` | `sk-ant-api03-your-real-key` |
-| `CLAUDE_MODEL` | `claude-sonnet-4-6` |
+| `GEMINI_API_KEY` | `YOUR_NEW_PRIVATE_API_KEY` |
+| `GEMINI_MODEL` | `gemini-2.5-flash` |
 | `DATABASE_PATH` | `/data/campus.db` |
 | `CHROMA_PERSIST_DIRECTORY` | `/data/chroma` |
 | `DOCUMENT_STORAGE_PATH` | `/data/uploads` |
-| `ADMIN_PASSWORD` | `YourStrongPassword123` |
-| `OFFICER_PASSWORD` | `YourStrongPassword456` |
+| `ADMIN_PASSWORD` | `YourStrongAdminPassword` |
+| `OFFICER_PASSWORD` | `YourStrongOfficerPassword` |
 
-3. Click **"Save Changes"** (this triggers a redeploy automatically).
+## Deploy Steps
 
----
+1. Push your latest code to GitHub:
+   ```bash
+   git add .
+   git commit -m "Upgrade to AcadFlow with Google Gemini"
+   git push origin main
+   ```
+2. In **Render Dashboard → Environment**, add `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-2.5-flash` and click **Save Changes**.
+3. Wait 2–4 minutes for the Docker build to finish.
+4. Open your Render URL, sign in as `admin`, and upload your institutional PDFs under **Document Manager**.
 
-## Step 4: Wait for Deployment
-
-1. Click **"Events"** in the left sidebar to watch the build logs.
-2. Wait 3–5 minutes until you see **"Your service is live 🎉"**.
-3. Click the public URL shown at the top of the page:
-   `https://campuscopilot-xxxx.onrender.com`
-
----
-
-## Step 5: First-Time Setup & Testing
-
-1. Open your public URL.
-2. Sign in as **`admin`** with the `ADMIN_PASSWORD` you set in Step 3.
-3. Go to **Documents → Upload & Index**, upload your college PDFs, and click **Upload & Process**.
-4. Sign out, register a student account under **Create Account**, and test **AI Chat**.
-
-> **Important Note (No Disk):** On the Free tier without a persistent disk, uploaded PDFs, student accounts, and ChromaDB data are stored in temporary container storage (`/data`). Whenever Render restarts or redeploys your service, this data resets and you will need to re-upload your PDFs.
+> **Storage Note:** On Render's Free tier without a Persistent Disk, `/data` is ephemeral and resets on redeploy/restart. Attach a Persistent Disk at `/data` on a paid plan for permanent storage across restarts.

@@ -1,129 +1,31 @@
 """
-CampusCopilot — Multi-Agent AI Pipeline
-Orchestrator → Knowledge → Eligibility → Planning → Verification → Revision → Recovery
+AcadFlow — Multi-Agent AI Pipeline
+Orchestrator → Hybrid Retrieval → Knowledge → Eligibility → Planning → Verification → Revision → Recovery
 Supports: English, Tamil, Hindi, Telugu
-Provider: Anthropic Claude (via ANTHROPIC_API_KEY)
+Provider: Google Gemini (via centralized gemini_client)
 """
 import os, json, re, datetime
 from dotenv import load_dotenv
 import rag
+import gemini_client
 
 load_dotenv()
 
-MODEL  = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL") or os.getenv("LLM_FAST_MODEL") or "openrouter/free"
-GROQ_MODEL = os.getenv("GROQ_MODEL") or "llama-3.3-70b-versatile"
-_anthropic_client = None
-
-# ─── API Key & Provider Resolution ──────────────────────────────────────────────
-def _read_env_or_secret(name: str) -> str:
-    val = os.getenv(name)
-    if not val:
-        try:
-            import streamlit as st
-            val = st.secrets.get(name)
-        except Exception:
-            val = None
-    cleaned = (val or "").strip().strip('"').strip("'")
-    if cleaned.lower().startswith("bearer "):
-        cleaned = cleaned[7:].strip()
-    return cleaned
-
-def _resolve_provider() -> tuple[str, str]:
-    """Return (provider, api_key) supporting OpenRouter, Groq, and Anthropic."""
-    groq_key = _read_env_or_secret("GROQ_API_KEY")
-    or_key   = _read_env_or_secret("OPENROUTER_API_KEY")
-    ant_key  = _read_env_or_secret("ANTHROPIC_API_KEY")
-
-    if groq_key and not groq_key.startswith("your-"):
-        return ("groq", groq_key)
-    if or_key.startswith("gsk_") or ant_key.startswith("gsk_"):
-        return ("groq", or_key if or_key.startswith("gsk_") else ant_key)
-    if or_key and not or_key.startswith("your-"):
-        return ("openrouter", or_key)
-    if ant_key.startswith("sk-or-"):
-        return ("openrouter", ant_key)
-    if ant_key and not ant_key.startswith("your-"):
-        return ("anthropic", ant_key)
-    raise RuntimeError("No valid API key configured. Set GROQ_API_KEY, OPENROUTER_API_KEY, or ANTHROPIC_API_KEY.")
 
 def has_api_key() -> bool:
-    try:
-        _resolve_provider()
-        return True
-    except Exception:
-        return False
+    return gemini_client.has_api_key()
 
-def _get_client():
-    global _anthropic_client
-    if _anthropic_client is None:
-        from anthropic import Anthropic
-        provider, key = _resolve_provider()
-        if provider != "anthropic":
-            raise RuntimeError("Anthropic client requested for non-Anthropic provider.")
-        _anthropic_client = Anthropic(api_key=key)
-    return _anthropic_client
+
+def get_ai_status() -> dict:
+    return gemini_client.get_status()
+
 
 def llm(system: str, user: str, max_tokens: int = 1500) -> str:
-    return llm_messages(system, [{"role": "user", "content": user}], max_tokens)
+    return gemini_client.generate_text(system, user, max_tokens=max_tokens)
+
 
 def llm_messages(system: str, messages: list[dict], max_tokens: int = 1500) -> str:
-    try:
-        provider, key = _resolve_provider()
-        if provider == "groq":
-            import httpx
-            model = _read_env_or_secret("GROQ_MODEL") or GROQ_MODEL
-            groq_messages = [{"role": "system", "content": system}] + messages
-            resp = httpx.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": groq_messages,
-                    "max_tokens": max_tokens,
-                },
-                timeout=60.0,
-            )
-            if resp.status_code >= 400:
-                return f"[AI Error: Groq HTTP {resp.status_code} - {resp.text[:300]}]"
-            data = resp.json()
-            return data["choices"][0]["message"]["content"] or ""
-        elif provider == "openrouter":
-            import httpx
-            model = _read_env_or_secret("OPENROUTER_MODEL") or _read_env_or_secret("LLM_FAST_MODEL") or OPENROUTER_MODEL
-            or_messages = [{"role": "system", "content": system}] + messages
-            resp = httpx.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": os.getenv("APP_BASE_URL", "https://campuscopilot.onrender.com"),
-                    "X-Title": "CampusCopilot",
-                },
-                json={
-                    "model": model,
-                    "messages": or_messages,
-                    "max_tokens": max_tokens,
-                },
-                timeout=60.0,
-            )
-            if resp.status_code >= 400:
-                return f"[AI Error: OpenRouter HTTP {resp.status_code} - {resp.text[:300]}]"
-            data = resp.json()
-            return data["choices"][0]["message"]["content"] or ""
-        else:
-            client = _get_client()
-            r = client.messages.create(
-                model=MODEL, max_tokens=max_tokens,
-                system=system,
-                messages=messages,
-            )
-            return "".join(b.text for b in r.content if b.type == "text")
-    except Exception as e:
-        return f"[AI Error: {e}]"
+    return gemini_client.generate_chat(system, messages, max_tokens=max_tokens)
 
 # ─── helpers ────────────────────────────────────────────────────────────────────
 def parse_json(txt: str, default):
@@ -146,7 +48,7 @@ def fmt(chunks: list[dict]) -> str:
         for i, c in enumerate(chunks)
     )
 
-MISSING_INFO_MSG = "I couldn't find this information in the uploaded college documents."
+MISSING_INFO_MSG = "I couldn't find this information in the uploaded institutional documents."
 
 def _format_history(chat_history: list[dict] | None, limit: int = 6) -> list[dict]:
     """Convert recent UI chat_messages into Anthropic API messages."""
@@ -185,7 +87,7 @@ def orchestrator(q: str, chat_history: list[dict] | None = None) -> dict:
             history_snippet = "Recent conversation:\n" + "\n".join(recent) + "\n\n"
 
     system = (
-        "You are the Orchestrator Agent for CampusCopilot, a university AI assistant.\n"
+        "You are the Orchestrator Agent for AcadFlow, an institutional AI platform.\n"
         "Classify the user's message into one of two modes:\n"
         '1. "conversation": greetings ("Hi", "Hello", "Hey", "Good morning"), thanks, '
         "casual small talk, general non-college knowledge questions, or follow-ups to casual chat.\n"
@@ -238,10 +140,10 @@ def conversation_agent(q: str, chat_history: list[dict] | None = None,
     }.get(language, "Respond in English.")
 
     system = (
-        f"You are CampusCopilot, a friendly and helpful university AI assistant. {lang_instruction}\n"
+        f"You are AcadFlow, a friendly and helpful institutional AI assistant. {lang_instruction}\n"
         "You are currently in Normal Conversation Mode.\n"
         "- For greetings (e.g. Hi, Hello, Hey, Good morning), respond warmly and briefly, e.g. "
-        "'Hello! Welcome to CampusCopilot. How can I help you today?'\n"
+        "'Hello! Welcome to AcadFlow. How can I help you today?'\n"
         "- For casual or general conversational questions, respond politely, naturally, and concisely.\n"
         "- Maintain conversation context from prior turns.\n"
         "- Never invent specific college policies, fees, or deadlines; if the user asks about "

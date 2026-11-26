@@ -1,18 +1,15 @@
-# render.yaml — Render Blueprint (Free Tier, no persistent disk)
-# Note: On Render Free tier, storage (/data) is ephemeral and resets on redeploy/restart.
-# For persistent storage across restarts, upgrade to a paid plan and attach a disk at /data.
-
+# render.yaml — Render Blueprint for AcadFlow
 services:
   - type: web
-    name: campuscopilot
+    name: acadflow
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: ANTHROPIC_API_KEY
-        sync: false                 # Enter manually in Render dashboard
-      - key: CLAUDE_MODEL
-        value: claude-sonnet-4-6
+      - key: GEMINI_API_KEY
+        sync: false                 # Set your private Gemini API key in Render Dashboard
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
       - key: DATABASE_PATH
         value: /data/campus.db
       - key: CHROMA_PERSIST_DIRECTORY
@@ -20,8 +17,8 @@ services:
       - key: DOCUMENT_STORAGE_PATH
         value: /data/uploads
       - key: ADMIN_PASSWORD
-        sync: false                 # Enter manually in Render dashboard
+        sync: false
       - key: OFFICER_PASSWORD
-        sync: false                 # Enter manually in Render dashboard
+        sync: false
     healthCheckPath: /_stcore/health
     autoDeploy: true

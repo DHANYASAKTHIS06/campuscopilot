@@ -1,4 +1,4 @@
-"""CampusCopilot — My Tasks page"""
+"""AcadFlow — Planning & Tasks"""
 import streamlit as st
 import datetime
 import db, ui, rag, agents
@@ -6,7 +6,9 @@ import db, ui, rag, agents
 def show(user: dict):
     ui.inject_css()
     ui.render_sidebar(user)
-    ui.page_header("✅ My Tasks", "Track your application steps, deadlines, and progress.")
+    ui.page_header("Planning & Tasks",
+                   "Track application steps, deadlines, and recovery plans.",
+                   section="Workspace")
 
     uid   = user["id"]
     tasks = db.all_tasks(uid)

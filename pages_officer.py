@@ -1,12 +1,13 @@
-"""CampusCopilot — Helpdesk Officer Dashboard"""
+"""AcadFlow — Helpdesk Officer Dashboard"""
 import streamlit as st
 import db, rag, agents, ui
 
 def show(user: dict):
     ui.inject_css()
     ui.render_sidebar(user)
-    ui.page_header("🎫 Helpdesk Officer Dashboard",
-                   "Manage student support tickets and generate AI-assisted responses.")
+    ui.page_header("Helpdesk Officer Console",
+                   "Review student support tickets and draft Gemini-assisted responses.",
+                   section="Helpdesk")
 
     officer_id = user["id"]
     all_tickets = db.get_tickets()

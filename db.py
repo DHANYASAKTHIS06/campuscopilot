@@ -116,6 +116,16 @@ def init():
             created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS announcements (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            title       TEXT NOT NULL,
+            body        TEXT DEFAULT '',
+            category    TEXT DEFAULT 'General',
+            created_by  INTEGER,
+            created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(created_by) REFERENCES users(id)
+        );
         """)
         # Seed default admin and officer if they don't exist
         _seed_defaults(c)
@@ -371,6 +381,25 @@ def get_chat_history(user_id, limit=20):
 def delete_chat_history(user_id):
     with conn() as c:
         c.execute("DELETE FROM chat_history WHERE user_id=?", (user_id,))
+
+# ─── announcements ───────────────────────────────────────────────────────────────
+def create_announcement(title, body="", category="General", created_by=None):
+    with conn() as c:
+        c.execute(
+            "INSERT INTO announcements(title,body,category,created_by) VALUES(?,?,?,?)",
+            (title.strip(), body.strip(), category, created_by)
+        )
+        return c.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+def get_announcements(limit=20):
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM announcements ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()]
+
+def delete_announcement(aid):
+    with conn() as c:
+        c.execute("DELETE FROM announcements WHERE id=?", (aid,))
 
 # ─── statistics ──────────────────────────────────────────────────────────────────
 def get_stats():

@@ -1,7 +1,7 @@
 [theme]
 base = "light"
 primaryColor = "#2563EB"
-backgroundColor = "#F8F9FB"
+backgroundColor = "#F8FAFF"
 secondaryBackgroundColor = "#FFFFFF"
 textColor = "#0F172A"
 font = "sans serif"
@@ -9,7 +9,7 @@ font = "sans serif"
 [server]
 headless = true
 enableCORS = false
-enableXsrfProtection = true
+enableXsrfProtection = false
 maxUploadSize = 50
 
 [browser]

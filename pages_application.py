@@ -1,4 +1,4 @@
-"""CampusCopilot — Application Studio page"""
+"""AcadFlow — Application Studio"""
 import streamlit as st
 import datetime, io
 import agents, db, ui
@@ -6,8 +6,9 @@ import agents, db, ui
 def show(user: dict):
     ui.inject_css()
     ui.render_sidebar(user)
-    ui.page_header("📝 Application Studio",
-                   "Generate professional application letters with AI assistance.")
+    ui.page_header("Application Studio",
+                   "Draft formal institutional application letters with Google Gemini and export A4 PDFs.",
+                   section="Workspace")
 
     uid = user["id"]
 
@@ -78,6 +79,10 @@ def show(user: dict):
                 letter_type, student_info, recipient_info, subject, details
             )
 
+        if letter_text.startswith("[AI Error:"):
+            st.error(letter_text)
+            return
+
         st.session_state["generated_letter"] = letter_text
         st.session_state["letter_subject"]   = subject
         st.rerun()
@@ -121,6 +126,8 @@ def show(user: dict):
                 st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
+
+    ui.render_footer()
 
 
 def _make_pdf(text: str, title: str) -> bytes | None:
