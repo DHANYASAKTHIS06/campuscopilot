@@ -4,11 +4,12 @@ import datetime
 import db, ui, rag, agents
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
-    ui.page_header("Planning & Tasks",
-                   "Track application steps, deadlines, and recovery plans.",
-                   section="Workspace")
+    ui.render_chrome(
+        user,
+        "Planning & Tasks",
+        "Track application steps, deadlines, and recovery plans.",
+        breadcrumbs=["Student Home", "Planning & Tasks"],
+    )
 
     uid   = user["id"]
     tasks = db.all_tasks(uid)
@@ -22,8 +23,7 @@ def show(user: dict):
           and save the generated checklist here.</span>
         </div>""", unsafe_allow_html=True)
         if st.button("💬 Go to AI Chat", type="primary"):
-            st.session_state["current_page"] = "chat"
-            st.rerun()
+            ui.navigate("chat")
         return
 
     # ── Progress summary ──────────────────────────────────────────────────

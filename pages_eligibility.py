@@ -3,11 +3,12 @@ import streamlit as st
 import agents, rag, db, ui
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
-    ui.page_header("Eligibility Checker",
-                   "Evaluate your academic profile against institutional scholarship and program criteria.",
-                   section="Workspace")
+    ui.render_chrome(
+        user,
+        "Eligibility Checker",
+        "Evaluate your academic profile against institutional scholarship and program criteria.",
+        breadcrumbs=["Student Home", "Eligibility Check"],
+    )
 
     uid = user["id"]
 

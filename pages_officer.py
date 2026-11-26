@@ -3,11 +3,12 @@ import streamlit as st
 import db, rag, agents, ui
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
-    ui.page_header("Helpdesk Officer Console",
-                   "Review student support tickets and draft Gemini-assisted responses.",
-                   section="Helpdesk")
+    ui.render_chrome(
+        user,
+        "Helpdesk Officer Console",
+        "Review student support tickets and draft Gemini-assisted responses.",
+        breadcrumbs=["Officer Home", "Manage Tickets"],
+    )
 
     officer_id = user["id"]
     all_tickets = db.get_tickets()

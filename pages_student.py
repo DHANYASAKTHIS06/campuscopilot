@@ -6,8 +6,12 @@ import ui
 
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
+    ui.render_chrome(
+        user,
+        "Student Home",
+        "Your academic overview, deadlines, announcements, and quick actions.",
+        breadcrumbs=["Student Home"],
+    )
 
     uid = user["id"]
     display_name = user.get("full_name") or user.get("username")
@@ -80,8 +84,7 @@ def show(user: dict):
             unsafe_allow_html=True,
         )
         if st.button("Open AI Chat →", key="qa_chat", type="primary", use_container_width=True):
-            st.session_state["current_page"] = "chat"
-            st.rerun()
+            ui.navigate("chat")
     with q2:
         st.markdown(
             '<div class="feature-card violet"><strong>🎯 Eligibility Check</strong>'
@@ -90,8 +93,7 @@ def show(user: dict):
             unsafe_allow_html=True,
         )
         if st.button("Check Eligibility →", key="qa_elig", use_container_width=True):
-            st.session_state["current_page"] = "eligibility"
-            st.rerun()
+            ui.navigate("eligibility")
     with q3:
         st.markdown(
             '<div class="feature-card cyan"><strong>✅ Planning & Tasks</strong>'
@@ -100,8 +102,7 @@ def show(user: dict):
             unsafe_allow_html=True,
         )
         if st.button("View Tasks →", key="qa_tasks", use_container_width=True):
-            st.session_state["current_page"] = "tasks"
-            st.rerun()
+            ui.navigate("tasks")
     with q4:
         st.markdown(
             '<div class="feature-card green"><strong>📝 Application Studio</strong>'
@@ -110,8 +111,7 @@ def show(user: dict):
             unsafe_allow_html=True,
         )
         if st.button("Draft Letter →", key="qa_app", use_container_width=True):
-            st.session_state["current_page"] = "application"
-            st.rerun()
+            ui.navigate("application")
 
     st.markdown("<br>", unsafe_allow_html=True)
     left, right = st.columns([1.35, 1])
@@ -209,8 +209,7 @@ def show(user: dict):
         with scols[i]:
             if st.button(f"✨ {sq}", key=f"dash_sq_{i}", use_container_width=True):
                 st.session_state["prefill_question"] = sq
-                st.session_state["current_page"] = "chat"
-                st.rerun()
+                ui.navigate("chat")
     st.markdown("</div>", unsafe_allow_html=True)
 
     ui.render_footer()

@@ -3,11 +3,12 @@ import streamlit as st
 import db, ui
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
-    ui.page_header("Helpdesk Support",
-                   "Submit support requests and track responses from institutional officers.",
-                   section="Support")
+    ui.render_chrome(
+        user,
+        "Helpdesk Support",
+        "Submit support requests and track responses from institutional officers.",
+        breadcrumbs=["Student Home", "Helpdesk Support"],
+    )
 
     uid = user["id"]
 

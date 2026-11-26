@@ -4,11 +4,12 @@ import datetime, io
 import agents, db, ui
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
-    ui.page_header("Application Studio",
-                   "Draft formal institutional application letters with Google Gemini and export A4 PDFs.",
-                   section="Workspace")
+    ui.render_chrome(
+        user,
+        "Application Studio",
+        "Draft formal institutional application letters with Google Gemini and export A4 PDFs.",
+        breadcrumbs=["Student Home", "Application Studio"],
+    )
 
     uid = user["id"]
 

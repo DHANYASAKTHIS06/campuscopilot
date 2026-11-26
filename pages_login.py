@@ -61,8 +61,7 @@ def show():
                         token = db.create_session(user["id"])
                         st.session_state["auth_token"] = token
                         st.session_state["user"] = user
-                        st.session_state["current_page"] = "dashboard"
-                        st.rerun()
+                        ui.navigate("dashboard")
                     else:
                         st.error("❌ Invalid username or password.")
 

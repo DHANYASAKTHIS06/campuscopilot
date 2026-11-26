@@ -8,10 +8,6 @@ import ui
 
 
 def show(user: dict, section: str = "dashboard"):
-    ui.inject_css()
-    ui.render_sidebar(user)
-
-    # Enforce admin authorization server-side
     if user.get("role") != "admin":
         st.error("⛔ Access denied. Administrator privileges required.")
         st.stop()
@@ -20,29 +16,75 @@ def show(user: dict, section: str = "dashboard"):
     ai_status = agents.get_ai_status()
 
     if section == "dashboard":
+        ui.render_chrome(
+            user,
+            "Admin Home",
+            "Institutional documents, users, helpdesk activity, and Gemini AI status.",
+            breadcrumbs=["Admin Home"],
+        )
         _show_overview(user, stats, ai_status)
-    elif section in ("documents", "upload"):
-        _show_documents(user)
+    elif section == "documents":
+        ui.render_chrome(
+            user,
+            "Document Manager",
+            "Inspect, search, re-index, or remove institutional PDFs.",
+            breadcrumbs=["Admin Home", "Documents"],
+        )
+        _show_documents()
+    elif section == "upload":
+        ui.render_chrome(
+            user,
+            "Upload Document",
+            "Upload institutional PDFs, run security scans, and index into ChromaDB + BM25.",
+            breadcrumbs=["Admin Home", "Documents", "Upload Document"],
+        )
+        _show_upload(user)
     elif section == "announcements":
+        ui.render_chrome(
+            user,
+            "Announcements",
+            "Publish official institutional notices visible on all Student Dashboards.",
+            breadcrumbs=["Admin Home", "Announcements"],
+        )
         _show_announcements(user)
     elif section == "students":
+        ui.render_chrome(
+            user,
+            "User Management",
+            "Search and inspect registered student accounts.",
+            breadcrumbs=["Admin Home", "User Management"],
+        )
         _show_students()
     elif section == "tickets":
+        ui.render_chrome(
+            user,
+            "Helpdesk Tickets",
+            "Monitor all student support requests across the institution.",
+            breadcrumbs=["Admin Home", "Helpdesk Tickets"],
+        )
         _show_tickets()
     elif section == "settings":
+        ui.render_chrome(
+            user,
+            "System & AI Status",
+            "Inspect Google Gemini configuration, vector index health, and storage paths.",
+            breadcrumbs=["Admin Home", "System & AI Status"],
+        )
         _show_settings(ai_status, stats)
     else:
+        ui.render_chrome(user, "Admin Home", breadcrumbs=["Admin Home"])
         _show_overview(user, stats, ai_status)
 
     ui.render_footer()
 
 
 def _show_overview(user: dict, stats: dict, ai_status: dict):
+    pill = "🟢 Gemini Ready" if ai_status["configured"] else "🔴 Gemini Not Configured"
     st.markdown(
         f'<div class="af-hero">'
         f'<div><h1>AcadFlow Admin Console</h1>'
-        f'<p>Institutional documents, student accounts, announcements, and AI health.</p></div>'
-        f'<div class="af-hero-pill">{"🟢 Gemini Ready" if ai_status["configured"] else "🔴 Gemini Not Configured"}</div>'
+        f'<p>Manage institutional knowledge, announcements, users, and AI health.</p></div>'
+        f'<div class="af-hero-pill">{pill}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -50,7 +92,7 @@ def _show_overview(user: dict, stats: dict, ai_status: dict):
     c1, c2, c3, c4, c5 = st.columns(5)
     cards = [
         ("blue",   "📄 Documents",      stats["total_documents"],   f"{stats['indexed_documents']} indexed"),
-        ("violet", "🔢 Vector Chunks",  stats["total_chunks"],      f"ChromaDB live: {rag.count()}"),
+        ("violet", "🔢 Vector Chunks",  stats["total_chunks"],      f"Live in Chroma: {rag.count()}"),
         ("cyan",   "👥 Students",       stats["total_students"],    "Registered accounts"),
         ("amber",  "🎫 Open Tickets",   stats["open_tickets"],      f"{stats['total_tickets']} total"),
         ("green",  "🤖 AI Provider",    "Gemini",                   ai_status["model"]),
@@ -66,14 +108,14 @@ def _show_overview(user: dict, stats: dict, ai_status: dict):
             )
 
     st.markdown("<br>", unsafe_allow_html=True)
-    left, right = st.columns([1.2, 1])
+    left, right = st.columns([1.25, 1])
 
     with left:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### 📄 Recent Documents")
+        st.markdown("### 📄 Recently Uploaded Documents")
         docs = db.get_documents()[:5]
         if not docs:
-            st.info("No documents uploaded yet. Open Document Manager to upload PDFs.")
+            st.info("No documents uploaded yet. Click Upload PDFs to add your first institutional document.")
         else:
             for d in docs:
                 idx_b = ui.badge("Indexed", "green") if d.get("indexed") else ui.badge("Pending", "grey")
@@ -86,158 +128,235 @@ def _show_overview(user: dict, stats: dict, ai_status: dict):
                     f'<div style="display:flex;gap:.35rem">{sc_b}{idx_b}</div></div>',
                     unsafe_allow_html=True,
                 )
-        if st.button("Open Document Manager →", type="primary", use_container_width=True):
-            st.session_state["current_page"] = "documents"
-            st.rerun()
+        b1, b2 = st.columns(2)
+        with b1:
+            if st.button("📄 Document Manager →", use_container_width=True):
+                ui.navigate("documents")
+        with b2:
+            if st.button("⬆️ Upload Document →", type="primary", use_container_width=True):
+                ui.navigate("upload")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### ⚡ Admin Quick Actions")
-        if st.button("⬆️ Upload & Index PDFs", use_container_width=True, type="primary"):
-            st.session_state["current_page"] = "documents"
-            st.rerun()
-        if st.button("📢 Post Announcement", use_container_width=True):
-            st.session_state["current_page"] = "announcements"
-            st.rerun()
-        if st.button("👥 View Student Directory", use_container_width=True):
-            st.session_state["current_page"] = "students"
-            st.rerun()
-        if st.button("⚙️ Check Gemini AI Status", use_container_width=True):
-            st.session_state["current_page"] = "settings"
-            st.rerun()
+        st.markdown("### ⚡ Quick Actions")
+        if st.button("⬆️ Upload New PDF Document", key="adm_qa_up", use_container_width=True, type="primary"):
+            ui.navigate("upload")
+        if st.button("📢 Manage Announcements", key="adm_qa_ann", use_container_width=True):
+            ui.navigate("announcements")
+        if st.button("👥 Student Directory", key="adm_qa_stu", use_container_width=True):
+            ui.navigate("students")
+        if st.button("🎫 Review Helpdesk Tickets", key="adm_qa_tkt", use_container_width=True):
+            ui.navigate("tickets")
+        if st.button("⚙️ AI & System Health", key="adm_qa_set", use_container_width=True):
+            ui.navigate("settings")
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-def _show_documents(user: dict):
-    ui.page_header(
-        "Document Manager",
-        "Upload institutional PDFs, run prompt-injection scans, and manage ChromaDB + BM25 indexing.",
-        section="Administration",
+def _show_documents():
+    c_search, c_btn = st.columns([3, 1])
+    with c_search:
+        search_q = st.text_input("🔍 Search documents", placeholder="Filter by filename...", label_visibility="collapsed")
+    with c_btn:
+        if st.button("⬆️ Upload New PDF", type="primary", use_container_width=True):
+            ui.navigate("upload")
+
+    docs = db.get_documents()
+    if search_q.strip():
+        docs = [d for d in docs if search_q.strip().lower() in d["name"].lower()]
+
+    if not docs:
+        st.markdown(
+            '<div class="card" style="text-align:center;padding:2rem">'
+            '<div style="font-size:2rem;margin-bottom:.5rem">📂</div>'
+            '<strong>No documents found</strong>'
+            '<p style="color:#64748B;font-size:.86rem">Upload institutional PDFs to power AcadFlow RAG answers.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    for doc in docs:
+        dname = doc["name"]
+        scan = doc.get("security_scan", "pending")
+        scan_badge = ui.status_badge("safe" if scan == "safe" else ("unsafe" if scan == "unsafe" else "pending_scan"))
+        indexed_badge = ui.badge("Indexed ✓", "green") if doc.get("indexed") else ui.badge("Not Indexed", "grey")
+        st.markdown(
+            f'<div class="card" style="padding:1rem 1.2rem;margin-bottom:.55rem">'
+            f'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem">'
+            f'<div><div style="font-weight:700;font-size:.92rem;color:#0F172A">📄 {dname}</div>'
+            f'<div style="font-size:.78rem;color:#64748B;margin-top:.2rem">'
+            f'{doc["page_count"]} pages · {doc["chunk_count"]} chunks · Uploaded {doc["uploaded_at"][:10]}'
+            f'</div></div>'
+            f'<div style="display:flex;gap:.45rem;align-items:center">{scan_badge}{indexed_badge}</div>'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
+
+        confirm_key = f"confirm_del_{dname}"
+        b1, b2, _ = st.columns([1.4, 1.4, 3.2])
+        with b1:
+            if st.session_state.get(confirm_key):
+                if st.button("⚠️ Confirm Delete", key=f"cf_del_{dname}", type="primary", use_container_width=True):
+                    rag.delete_document(dname)
+                    db.delete_document(dname)
+                    fp = doc.get("file_path", "")
+                    if fp and os.path.exists(fp):
+                        try:
+                            os.remove(fp)
+                        except Exception:
+                            pass
+                    st.session_state.pop(confirm_key, None)
+                    st.toast(f"Deleted {dname}", icon="🗑")
+                    st.rerun()
+            else:
+                if st.button("🗑 Remove", key=f"del_doc_{dname}", use_container_width=True):
+                    st.session_state[confirm_key] = True
+                    st.rerun()
+        with b2:
+            if st.session_state.get(confirm_key):
+                if st.button("Cancel", key=f"cancel_del_{dname}", use_container_width=True):
+                    st.session_state.pop(confirm_key, None)
+                    st.rerun()
+            elif not doc.get("indexed") and doc.get("security_scan") != "unsafe":
+                if st.button("🔄 Index Now", key=f"reidx_{dname}", use_container_width=True):
+                    fp = doc.get("file_path", "")
+                    if fp and os.path.exists(fp):
+                        with open(fp, "rb") as fh:
+                            pages = rag.extract_pdf(fh.read())
+                        if pages:
+                            cnt = rag.ingest(dname, pages)
+                            if cnt > 0:
+                                db.update_document(dname, indexed=True, chunk_count=cnt)
+                                st.toast(f"Indexed {cnt} chunks.", icon="✅")
+                                st.rerun()
+                            else:
+                                st.error("Indexing produced 0 chunks.")
+                    else:
+                        st.error("PDF file missing on disk. Please re-upload.")
+
+
+def _show_upload(user: dict):
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("### ⬆️ Upload Institutional PDFs")
+    st.markdown(
+        '<div style="font-size:.85rem;color:#475569;margin-bottom:.75rem">'
+        'Accepted format: <strong>PDF</strong> · Maximum size: <strong>50 MB per file</strong> · '
+        'Automatically extracts text, scans for prompt injections, and indexes into ChromaDB + BM25.'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    tab_list, tab_upload = st.tabs(["📚 Uploaded Documents", "⬆️ Upload & Index PDF"])
+    uploader_key = f"pdf_uploader_{st.session_state.get('upload_nonce', 0)}"
+    files = st.file_uploader(
+        "Drag and drop PDF files here or click Browse files",
+        type="pdf",
+        accept_multiple_files=True,
+        key=uploader_key,
+    )
 
-    with tab_list:
-        search_q = st.text_input("🔍 Search documents", placeholder="Filter by filename...")
-        docs = db.get_documents()
-        if search_q.strip():
-            docs = [d for d in docs if search_q.strip().lower() in d["name"].lower()]
+    if files:
+        st.markdown("**Selected Files:**")
+        for f in files:
+            size_kb = round(f.size / 1024, 1)
+            size_label = f"{round(size_kb / 1024, 2)} MB" if size_kb >= 1024 else f"{size_kb} KB"
+            st.markdown(f"- 📄 **{f.name}** ({size_label})")
 
-        if not docs:
-            st.info("No matching documents found.")
-        else:
-            for doc in docs:
-                scan = doc.get("security_scan", "pending")
-                scan_badge = ui.status_badge(
-                    "safe" if scan == "safe" else ("unsafe" if scan == "unsafe" else "pending_scan")
-                )
-                indexed_badge = ui.badge("Indexed ✓", "green") if doc.get("indexed") else ui.badge("Not Indexed", "grey")
-                st.markdown(
-                    f'<div class="card" style="padding:1rem 1.2rem;margin-bottom:.55rem">'
-                    f'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem">'
-                    f'<div><div style="font-weight:700;font-size:.92rem;color:#0F172A">📄 {doc["name"]}</div>'
-                    f'<div style="font-size:.78rem;color:#64748B;margin-top:.2rem">'
-                    f'{doc["page_count"]} pages · {doc["chunk_count"]} chunks · Uploaded {doc["uploaded_at"][:10]}'
-                    f'</div></div>'
-                    f'<div style="display:flex;gap:.45rem;align-items:center">{scan_badge}{indexed_badge}</div>'
-                    f'</div></div>',
-                    unsafe_allow_html=True,
-                )
-                b1, b2, _ = st.columns([1, 1.3, 3.7])
-                with b1:
-                    if st.button("🗑 Remove", key=f"del_doc_{doc['name']}", use_container_width=True):
-                        rag.delete_document(doc["name"])
-                        db.delete_document(doc["name"])
-                        fp = doc.get("file_path", "")
-                        if fp and os.path.exists(fp):
-                            try:
-                                os.remove(fp)
-                            except Exception:
-                                pass
-                        st.toast(f"Removed {doc['name']}", icon="🗑")
-                        st.rerun()
-                with b2:
-                    if not doc.get("indexed") and doc.get("security_scan") != "unsafe":
-                        if st.button("🔄 Index Now", key=f"reidx_{doc['name']}", use_container_width=True):
-                            fp = doc.get("file_path", "")
-                            if fp and os.path.exists(fp):
-                                with open(fp, "rb") as fh:
-                                    pages = rag.extract_pdf(fh.read())
-                                if pages:
-                                    cnt = rag.ingest(doc["name"], pages)
-                                    db.update_document(doc["name"], indexed=True, chunk_count=cnt)
-                                    st.success(f"Indexed {cnt} chunks.")
-                                    st.rerun()
-                            else:
-                                st.error("PDF file missing on disk. Please re-upload.")
+    c1, c2 = st.columns(2)
+    with c1:
+        do_scan = st.checkbox("Run security scan (prompt-injection check)", value=True)
+    with c2:
+        do_index = st.checkbox("Index into ChromaDB + BM25 immediately", value=True)
 
-    with tab_upload:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### Upload Institutional PDFs")
-        st.caption("Upload handbooks, scholarship circulars, fee schedules, exam rules, and hostel policies (max 50 MB).")
-        files = st.file_uploader("Select PDF files", type="pdf", accept_multiple_files=True)
-        c1, c2 = st.columns(2)
-        with c1:
-            do_scan = st.checkbox("Run security scan (prompt-injection check)", value=True)
-        with c2:
-            do_index = st.checkbox("Index into ChromaDB + BM25 immediately", value=True)
+    if files and st.button("🚀 Upload & Process Documents", type="primary", use_container_width=True):
+        progress = st.progress(0, text="Starting upload...")
+        results = []
+        total = len(files)
 
-        if files and st.button("⬆️ Upload & Process", type="primary", use_container_width=True):
-            for f in files:
-                if not f.name.lower().endswith(".pdf"):
-                    st.error(f"❌ {f.name}: Only PDF files are allowed.")
-                    continue
-                if f.size > 50 * 1024 * 1024:
-                    st.error(f"⚠️ {f.name}: Exceeds 50 MB limit.")
-                    continue
+        for idx, f in enumerate(files, 1):
+            base_pct = int(((idx - 1) / total) * 100)
+            if not f.name.lower().endswith(".pdf"):
+                results.append(("error", f"{f.name}: Only PDF files are allowed."))
+                continue
+            if f.size > 50 * 1024 * 1024:
+                results.append(("error", f"{f.name}: Exceeds 50 MB size limit."))
+                continue
 
+            try:
+                progress.progress(min(base_pct + 20, 95), text=f"Extracting text from {f.name}...")
                 data = f.read()
-                with st.spinner(f"Processing {f.name}..."):
-                    file_path = rag.save_pdf(data, f.name)
-                    pages = rag.extract_pdf(data)
-                    if not pages:
-                        st.warning(f"⚠️ {f.name}: No extractable text found.")
+                file_path = rag.save_pdf(data, f.name)
+                pages = rag.extract_pdf(data)
+                if not pages:
+                    results.append(("warning", f"{f.name}: No extractable text found in PDF."))
+                    continue
+
+                all_text = "\n".join(t for _, t in pages)
+                scan_result = "not_checked"
+                if do_scan:
+                    progress.progress(min(base_pct + 45, 95), text=f"Scanning {f.name} for prompt injections...")
+                    sr = rag.security_scan(all_text)
+                    scan_result = "safe" if sr["safe"] else "unsafe"
+                    if not sr["safe"]:
+                        db.save_document(f.name, file_path, len(pages), 0, uploaded_by=user["id"])
+                        db.update_document(f.name, security_scan="unsafe", indexed=False)
+                        db.save_notice(f.name, all_text, uploaded_by=user["id"])
+                        results.append(("error", f"{f.name}: Quarantined — suspicious prompt-injection pattern detected."))
                         continue
 
-                    all_text = "\n".join(t for _, t in pages)
-                    scan_result = "not_checked"
-                    if do_scan:
-                        sr = rag.security_scan(all_text)
-                        scan_result = "safe" if sr["safe"] else "unsafe"
-                        if not sr["safe"]:
-                            st.error(f"🚨 {f.name}: Quarantined — suspicious prompt-injection pattern detected.")
-                            db.save_document(f.name, file_path, len(pages), 0, uploaded_by=user["id"])
-                            db.update_document(f.name, security_scan="unsafe", indexed=False)
-                            db.save_notice(f.name, all_text, uploaded_by=user["id"])
-                            continue
+                db.save_notice(f.name, all_text, uploaded_by=user["id"])
+                db.save_document(f.name, file_path, len(pages), 0, uploaded_by=user["id"])
+                db.update_document(f.name, security_scan=scan_result)
 
-                    old_text = db.get_notice(f.name)
-                    if old_text and old_text != all_text:
-                        diffs = rag.diff_text(old_text, all_text)
-                        if diffs:
-                            st.info(f"📢 {f.name}: Updated notice detected ({len(diffs)} line changes).")
-
-                    db.save_notice(f.name, all_text, uploaded_by=user["id"])
-                    db.save_document(f.name, file_path, len(pages), 0, uploaded_by=user["id"])
-                    db.update_document(f.name, security_scan=scan_result)
-
-                    if do_index:
-                        cnt = rag.ingest(f.name, pages)
+                if do_index:
+                    progress.progress(min(base_pct + 75, 95), text=f"Indexing {f.name} into ChromaDB + BM25...")
+                    cnt = rag.ingest(f.name, pages)
+                    if cnt > 0:
                         db.update_document(f.name, indexed=True, chunk_count=cnt)
-                        st.success(f"✅ {f.name}: {cnt} chunks indexed across {len(pages)} page(s).")
+                        results.append(("success", f"{f.name}: {cnt} chunks indexed across {len(pages)} page(s)."))
                     else:
-                        st.success(f"✅ {f.name}: Saved ({len(pages)} pages). Ready to index.")
-        st.markdown("</div>", unsafe_allow_html=True)
+                        db.update_document(f.name, indexed=False, chunk_count=0)
+                        results.append(("error", f"{f.name}: Indexing failed (0 chunks created)."))
+                else:
+                    results.append(("success", f"{f.name}: Saved ({len(pages)} pages). Ready for indexing."))
+            except Exception as e:
+                results.append(("error", f"{f.name}: Processing failed — {e}"))
+
+        progress.progress(100, text="Processing complete.")
+        st.session_state["last_upload_results"] = results
+        st.toast("Document processing finished.", icon="📄")
+
+    if st.session_state.get("last_upload_results"):
+        st.markdown("---")
+        st.markdown("### Processing Summary")
+        for kind, msg in st.session_state["last_upload_results"]:
+            if kind == "success":
+                st.success(f"✅ {msg}")
+            elif kind == "warning":
+                st.warning(f"⚠️ {msg}")
+            else:
+                st.error(f"❌ {msg}")
+
+        st.markdown("#### What would you like to do next?")
+        n1, n2, n3 = st.columns(3)
+        with n1:
+            if st.button("📄 View Documents", key="post_up_docs", type="primary", use_container_width=True):
+                st.session_state.pop("last_upload_results", None)
+                ui.navigate("documents")
+        with n2:
+            if st.button("⬆️ Upload Another Document", key="post_up_more", use_container_width=True):
+                st.session_state.pop("last_upload_results", None)
+                st.session_state["upload_nonce"] = st.session_state.get("upload_nonce", 0) + 1
+                st.rerun()
+        with n3:
+            if st.button("🏠 Go to Admin Dashboard", key="post_up_home", use_container_width=True):
+                st.session_state.pop("last_upload_results", None)
+                ui.navigate("dashboard")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _show_announcements(user: dict):
-    ui.page_header(
-        "Institutional Announcements",
-        "Publish official notices visible on all Student Dashboards.",
-        section="Administration",
-    )
-
     with st.form("ann_form", clear_on_submit=True):
         c1, c2 = st.columns([2, 1])
         with c1:
@@ -275,11 +394,6 @@ def _show_announcements(user: dict):
 
 
 def _show_students():
-    ui.page_header(
-        "Student Directory",
-        "View registered student accounts and academic profiles.",
-        section="Administration",
-    )
     students = db.get_all_users(role="student")
     q = st.text_input("🔍 Search students", placeholder="Search by name, username, or department...")
     if q.strip():
@@ -322,11 +436,6 @@ def _show_students():
 
 
 def _show_tickets():
-    ui.page_header(
-        "Helpdesk Tickets Overview",
-        "Monitor all student support tickets across the institution.",
-        section="Administration",
-    )
     tickets = db.get_tickets()
     status_filter = st.selectbox("Filter by status", ["All", "Open", "In Progress", "Resolved", "Closed"])
     if status_filter != "All":
@@ -351,11 +460,6 @@ def _show_tickets():
 
 
 def _show_settings(ai_status: dict, stats: dict):
-    ui.page_header(
-        "AI & System Status",
-        "Inspect Google Gemini configuration, vector index health, and storage paths.",
-        section="Administration",
-    )
     c1, c2 = st.columns(2)
     with c1:
         st.markdown('<div class="card">', unsafe_allow_html=True)

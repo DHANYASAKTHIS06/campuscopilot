@@ -6,12 +6,11 @@ import ui
 
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
-    ui.page_header(
+    ui.render_chrome(
+        user,
         "Ask AcadFlow",
         "Conversational AI with hybrid RAG citations from uploaded institutional documents.",
-        section="Workspace",
+        breadcrumbs=["Student Home", "AI Assistant", "Conversation"],
     )
 
     uid = user["id"]

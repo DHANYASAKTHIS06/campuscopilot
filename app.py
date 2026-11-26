@@ -1,6 +1,6 @@
 """
 AcadFlow — Main Application Entry Point
-Multi-role, multi-page Streamlit application.
+Multi-role, multi-page Streamlit application with URL query-param routing.
 """
 try:
     __import__("pysqlite3")
@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Inject Streamlit secrets into env if running on Streamlit Cloud
 try:
     if hasattr(st, "secrets"):
         for key in [
@@ -29,21 +28,20 @@ except Exception:
     pass
 
 import db
+import ui
 
 st.set_page_config(
     page_title="AcadFlow — Intelligence That Moves Academia Forward.",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={
-        "About": "AcadFlow — Intelligence That Moves Academia Forward."
-    },
+    menu_items={"About": "AcadFlow — Intelligence That Moves Academia Forward."},
 )
 
 db.init()
 
 if "current_page" not in st.session_state:
-    st.session_state["current_page"] = "login"
+    st.session_state["current_page"] = "dashboard"
 if "auth_token" not in st.session_state:
     st.session_state["auth_token"] = None
 
@@ -56,7 +54,6 @@ def get_user():
 
 
 user = get_user()
-page = st.session_state.get("current_page", "login")
 
 if not user:
     st.session_state["current_page"] = "login"
@@ -67,9 +64,36 @@ if not user:
 role = user.get("role", "student")
 st.session_state["user"] = user
 
+# Sync route from URL query_params if present and valid for user's role
+url_page = None
+try:
+    url_page = st.query_params.get("page")
+except Exception:
+    url_page = None
+
+permitted = ui.get_permitted_pages(role)
+page = st.session_state.get("current_page", "dashboard")
+
+if url_page and url_page != page:
+    if url_page in permitted:
+        page = url_page
+        st.session_state["current_page"] = page
+    else:
+        st.warning("⛔ That page is not available for your role. Redirected to your Dashboard.")
+        page = "dashboard"
+        st.session_state["current_page"] = "dashboard"
+        try:
+            st.query_params["page"] = "dashboard"
+        except Exception:
+            pass
+
+if page not in permitted:
+    page = "dashboard"
+    st.session_state["current_page"] = "dashboard"
+
 # ── Role-based Routing (enforced server-side) ─────────────────────────────────
 if role == "student":
-    if page in ("login", "dashboard"):
+    if page == "dashboard":
         import pages_student
         pages_student.show(user)
     elif page == "chat":
@@ -93,15 +117,9 @@ if role == "student":
     elif page == "about":
         import pages_about
         pages_about.show(user)
-    else:
-        import pages_student
-        pages_student.show(user)
 
 elif role == "admin":
-    if page in ("login", "dashboard"):
-        import pages_admin
-        pages_admin.show(user, section="dashboard")
-    elif page in ("documents", "upload", "announcements", "students", "tickets", "settings"):
+    if page in ("dashboard", "documents", "upload", "announcements", "students", "tickets", "settings"):
         import pages_admin
         pages_admin.show(user, section=page)
     elif page == "profile":
@@ -110,12 +128,9 @@ elif role == "admin":
     elif page == "about":
         import pages_about
         pages_about.show(user)
-    else:
-        import pages_admin
-        pages_admin.show(user, section="dashboard")
 
 elif role == "officer":
-    if page in ("login", "dashboard", "tickets"):
+    if page in ("dashboard", "tickets"):
         import pages_officer
         pages_officer.show(user)
     elif page == "profile":
@@ -124,13 +139,9 @@ elif role == "officer":
     elif page == "about":
         import pages_about
         pages_about.show(user)
-    else:
-        import pages_officer
-        pages_officer.show(user)
 
 else:
     st.error("Unknown role. Please contact the administrator.")
     if st.button("Sign Out"):
-        import ui
         ui.logout()
         st.rerun()

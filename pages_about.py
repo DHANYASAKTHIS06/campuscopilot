@@ -4,9 +4,8 @@ import ui
 
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
-    ui.page_header("About AcadFlow", ui.BRAND_TAGLINE, section="Platform")
+    home = {"admin": "Admin Home", "officer": "Officer Home"}.get(user.get("role"), "Student Home")
+    ui.render_chrome(user, "About AcadFlow", ui.BRAND_TAGLINE, breadcrumbs=[home, "About AcadFlow"])
 
     st.markdown(
         f'<div class="af-hero">'

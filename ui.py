@@ -1,6 +1,11 @@
 """
-AcadFlow — Shared UI Utilities
-Design system injection, AcadFlow logo, navigation sidebar, breadcrumbs, and renderers.
+AcadFlow — Shared UI Utilities & Global Navigation System
+Provides:
+  - CSS design system injection
+  - Role-based navigation & URL query-param synchronization
+  - Global Top Navigation Bar (Home, Quick Jump, Notifications, Role, Profile, Logout)
+  - Persistent Role-Aware Sidebar
+  - Breadcrumbs, Page Headers, Cards, Chat Bubbles, Citations, Eligibility & Plans
 """
 import os
 import re
@@ -16,17 +21,62 @@ BRAND_DESC = (
 )
 
 LOGO_SVG = (
-    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" '
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" '
     'xmlns="http://www.w3.org/2000/svg">'
     '<path d="M12 3L2 8.5L12 14L22 8.5L12 3Z" fill="white" fill-opacity="0.95"/>'
     '<path d="M6 11.5V16.5C6 18.433 8.686 20 12 20C15.314 20 18 18.433 18 16.5V11.5L12 14.8L6 11.5Z" '
-    'fill="white" fill-opacity="0.8"/>'
+    'fill="white" fill-opacity="0.82"/>'
     '<circle cx="20" cy="14" r="1.5" fill="#67E8F9"/>'
     '</svg>'
 )
 
+# Role-scoped route definitions: (page_key, icon, label, section)
+ROLE_ROUTES = {
+    "student": [
+        ("dashboard",   "🏠", "Student Home",        "Workspace"),
+        ("chat",        "✨", "Ask AcadFlow",        "Workspace"),
+        ("eligibility", "🎯", "Eligibility Check",   "Workspace"),
+        ("tasks",       "✅", "Planning & Tasks",    "Workspace"),
+        ("application", "📝", "Application Studio",  "Workspace"),
+        ("helpdesk",    "🎫", "Helpdesk Support",    "Support & Account"),
+        ("profile",     "👤", "My Profile",          "Support & Account"),
+        ("about",       "ℹ️", "About AcadFlow",      "Support & Account"),
+    ],
+    "admin": [
+        ("dashboard",     "🏠", "Admin Home",         "Administration"),
+        ("documents",     "📄", "Document Manager",   "Administration"),
+        ("upload",        "⬆️", "Upload Document",    "Administration"),
+        ("announcements", "📢", "Announcements",      "Administration"),
+        ("students",      "👥", "User Management",    "Administration"),
+        ("tickets",       "🎫", "Helpdesk Tickets",   "Administration"),
+        ("settings",      "⚙️", "System & AI Status", "System & Account"),
+        ("profile",       "👤", "My Profile",         "System & Account"),
+        ("about",         "ℹ️", "About AcadFlow",     "System & Account"),
+    ],
+    "officer": [
+        ("dashboard", "🏠", "Officer Home",    "Helpdesk"),
+        ("tickets",   "🎫", "Manage Tickets",  "Helpdesk"),
+        ("profile",   "👤", "My Profile",      "Account"),
+        ("about",     "ℹ️", "About AcadFlow",  "Account"),
+    ],
+}
 
-# ─── CSS injection ──────────────────────────────────────────────────────────────
+
+# ─── Navigation & Auth Helpers ──────────────────────────────────────────────────
+def navigate(page: str):
+    """Navigate cleanly, updating both session_state and URL query_params."""
+    st.session_state["current_page"] = page
+    try:
+        st.query_params["page"] = page
+    except Exception:
+        pass
+    st.rerun()
+
+
+def get_permitted_pages(role: str) -> list[str]:
+    return [p[0] for p in ROLE_ROUTES.get(role, [])]
+
+
 def inject_css():
     css_path = os.path.join(os.path.dirname(__file__), ".streamlit", "style.css")
     css = ""
@@ -42,7 +92,6 @@ def inject_css():
     st.markdown(f"<style>{css}\n{extra}</style>", unsafe_allow_html=True)
 
 
-# ─── Auth helpers ───────────────────────────────────────────────────────────────
 def get_current_user() -> dict | None:
     token = st.session_state.get("auth_token")
     if not token:
@@ -76,12 +125,108 @@ def logout():
     st.session_state.pop("user", None)
     st.session_state.pop("chat_messages", None)
     st.session_state["current_page"] = "login"
+    try:
+        st.query_params.clear()
+    except Exception:
+        pass
 
 
-# ─── Sidebar navigation ─────────────────────────────────────────────────────────
+# ─── Global Chrome: Top Bar + Persistent Sidebar + Breadcrumbs ──────────────────
+def render_chrome(user: dict, title: str, subtitle: str = "", breadcrumbs: list[str] | None = None):
+    """Render unified AcadFlow global navigation on every authenticated page."""
+    inject_css()
+    render_sidebar(user)
+    render_topbar(user, title)
+    page_header(title, subtitle, breadcrumbs=breadcrumbs)
+
+
+def render_topbar(user: dict, current_title: str):
+    import db
+    role = user.get("role", "student")
+    name = user.get("full_name") or user.get("username", "")
+    routes = ROLE_ROUTES.get(role, [])
+
+    role_labels = {
+        "student": ("Student", "af-role-student"),
+        "admin":   ("Administrator", "af-role-admin"),
+        "officer": ("Helpdesk Officer", "af-role-officer"),
+    }
+    r_label, r_cls = role_labels.get(role, (role.title(), "af-role-student"))
+
+    # Top bar brand + quick controls
+    c_brand, c_home, c_jump, c_notif, c_prof, c_out = st.columns([3.2, 1.0, 1.4, 1.1, 1.1, 1.0])
+
+    with c_brand:
+        st.markdown(
+            f'<div class="af-topbar-left">'
+            f'<div class="af-topbar-logo">{LOGO_SVG}</div>'
+            f'<div><div class="af-topbar-title">{BRAND_NAME} '
+            f'<span class="af-role-pill {r_cls}">{r_label}</span></div>'
+            f'<div class="af-topbar-sub">Signed in as <strong>{name}</strong> · {current_title}</div>'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    with c_home:
+        if st.button("🏠 Home", key="top_home_btn", use_container_width=True, help="Return to Dashboard"):
+            navigate("dashboard")
+
+    with c_jump:
+        with st.popover("⌘ Quick Jump", use_container_width=True):
+            st.markdown("**Quick Navigation**")
+            q_filter = st.text_input(
+                "Filter pages",
+                key="quick_jump_filter",
+                placeholder="Type page name...",
+                label_visibility="collapsed",
+            )
+            ql = q_filter.strip().lower()
+            for p_key, icon, label, sec in routes:
+                if ql and ql not in label.lower() and ql not in sec.lower():
+                    continue
+                if st.button(f"{icon} {label}", key=f"qj_{p_key}", use_container_width=True):
+                    navigate(p_key)
+
+    with c_notif:
+        if role == "student":
+            anns = db.get_announcements(limit=4)
+            notif_label = f"🔔 {len(anns)}" if anns else "🔔"
+            with st.popover(notif_label, use_container_width=True):
+                st.markdown("**📢 Announcements**")
+                if not anns:
+                    st.caption("No recent announcements.")
+                else:
+                    for a in anns:
+                        st.markdown(f"**{a['title']}**  \n_{a['created_at'][:10]}_ — {a['body'][:90]}")
+                        st.markdown("---")
+        else:
+            stats = db.get_stats()
+            open_t = stats.get("open_tickets", 0)
+            notif_label = f"🔔 {open_t}" if open_t else "🔔"
+            with st.popover(notif_label, use_container_width=True):
+                st.markdown("**🔔 System Alerts**")
+                st.markdown(f"- Open Helpdesk Tickets: **{open_t}**")
+                st.markdown(f"- Indexed Documents: **{stats.get('indexed_documents', 0)}/{stats.get('total_documents', 0)}**")
+                if st.button("View Tickets →", key="notif_tickets", use_container_width=True):
+                    navigate("tickets")
+
+    with c_prof:
+        if st.button("👤 Profile", key="top_prof_btn", use_container_width=True):
+            navigate("profile")
+
+    with c_out:
+        if st.button("🚪 Logout", key="top_logout_btn", use_container_width=True):
+            logout()
+            st.rerun()
+
+    st.markdown('<div style="border-bottom:1px solid #E2E8F0;margin:.35rem 0 1rem"></div>', unsafe_allow_html=True)
+
+
 def render_sidebar(user: dict):
     role = user.get("role", "student")
     name = user.get("full_name") or user.get("username", "")
+    routes = ROLE_ROUTES.get(role, [])
+    current = st.session_state.get("current_page", "dashboard")
 
     with st.sidebar:
         st.markdown(
@@ -89,55 +234,24 @@ def render_sidebar(user: dict):
             f'<div class="sidebar-logo-icon">{LOGO_SVG}</div>'
             f'<div class="sidebar-logo-text">'
             f'<h2>{BRAND_NAME}</h2>'
-            f'<p>Academic Intelligence</p>'
+            f'<p>{BRAND_TAGLINE}</p>'
             f'</div></div>',
             unsafe_allow_html=True,
         )
 
-        current = st.session_state.get("current_page", "dashboard")
-
-        def nav(icon: str, label: str, page: str):
-            is_active = current == page
+        last_section = None
+        for p_key, icon, label, section in routes:
+            if section != last_section:
+                st.markdown(f'<p class="nav-section-label">{section}</p>', unsafe_allow_html=True)
+                last_section = section
+            is_active = current == p_key
             if st.button(
                 f"{icon}  {label}",
-                key=f"nav_{page}",
+                key=f"nav_{p_key}",
                 use_container_width=True,
                 type="primary" if is_active else "secondary",
             ):
-                st.session_state["current_page"] = page
-                st.rerun()
-
-        if role == "student":
-            st.markdown('<p class="nav-section-label">Workspace</p>', unsafe_allow_html=True)
-            nav("🏠", "Dashboard",          "dashboard")
-            nav("✨", "Ask AcadFlow",       "chat")
-            nav("🎯", "Eligibility Check",  "eligibility")
-            nav("✅", "Planning & Tasks",   "tasks")
-            nav("📝", "Application Studio", "application")
-            st.markdown('<p class="nav-section-label">Support & Info</p>', unsafe_allow_html=True)
-            nav("🎫", "Helpdesk Support",   "helpdesk")
-            nav("👤", "My Profile",         "profile")
-            nav("ℹ️", "About AcadFlow",     "about")
-
-        elif role == "admin":
-            st.markdown('<p class="nav-section-label">Administration</p>', unsafe_allow_html=True)
-            nav("🏠", "Admin Overview",     "dashboard")
-            nav("📄", "Document Manager",   "documents")
-            nav("📢", "Announcements",      "announcements")
-            nav("👥", "Student Directory",  "students")
-            nav("🎫", "Helpdesk Tickets",   "tickets")
-            nav("⚙️", "AI & System Status", "settings")
-            st.markdown('<p class="nav-section-label">Account</p>', unsafe_allow_html=True)
-            nav("👤", "My Profile",         "profile")
-            nav("ℹ️", "About AcadFlow",     "about")
-
-        elif role == "officer":
-            st.markdown('<p class="nav-section-label">Helpdesk</p>', unsafe_allow_html=True)
-            nav("🏠", "Officer Dashboard",  "dashboard")
-            nav("🎫", "Manage Tickets",     "tickets")
-            st.markdown('<p class="nav-section-label">Account</p>', unsafe_allow_html=True)
-            nav("👤", "My Profile",         "profile")
-            nav("ℹ️", "About AcadFlow",     "about")
+                navigate(p_key)
 
         initials = "".join(w[0].upper() for w in name.split()[:2]) or name[:2].upper()
         role_label = {
@@ -157,19 +271,23 @@ def render_sidebar(user: dict):
             unsafe_allow_html=True,
         )
         st.markdown("")
-        if st.button("🚪  Sign Out", use_container_width=True):
+        if st.button("🚪  Sign Out", key="side_logout_btn", use_container_width=True):
             logout()
             st.rerun()
 
 
-# ─── Layout & component helpers ─────────────────────────────────────────────────
-def page_header(title: str, subtitle: str = "", section: str = "AcadFlow"):
+# ─── Layout & Component Helpers ─────────────────────────────────────────────────
+def page_header(title: str, subtitle: str = "", section: str = "AcadFlow", breadcrumbs: list[str] | None = None):
+    if breadcrumbs:
+        crumbs = " → ".join(breadcrumbs[:-1])
+        last = breadcrumbs[-1]
+        bc_html = f'<div class="af-breadcrumb">{crumbs} → <span>{last}</span></div>' if crumbs else f'<div class="af-breadcrumb"><span>{last}</span></div>'
+    else:
+        bc_html = f'<div class="af-breadcrumb">{section} → <span>{title}</span></div>'
+
+    sub_html = f"<p>{subtitle}</p>" if subtitle else ""
     st.markdown(
-        f'<div class="af-breadcrumb">{section} / <span>{title}</span></div>'
-        f'<div class="page-header">'
-        f'<h1>{title}</h1>'
-        f'{"<p>" + subtitle + "</p>" if subtitle else ""}'
-        f'</div>',
+        f'{bc_html}<div class="page-header"><h1>{title}</h1>{sub_html}</div>',
         unsafe_allow_html=True,
     )
 
@@ -295,6 +413,8 @@ def render_sources(chunks: list[dict]):
     )
     with st.expander(f"📚 View Document Citations ({len(chunks)} references)"):
         for i, c in enumerate(chunks, 1):
+            snippet = c["text"][:320]
+            ellipsis = "..." if len(c["text"]) > 320 else ""
             st.markdown(
                 f'<div class="card-sm" style="margin-bottom:.5rem">'
                 f'<div style="display:flex;justify-content:space-between;margin-bottom:.35rem">'
@@ -302,7 +422,7 @@ def render_sources(chunks: list[dict]):
                 f'<span style="font-size:.78rem;color:#475569">📄 {c["source"]} · Page {c["page"]}</span>'
                 f'</div>'
                 f'<p style="font-size:.82rem;color:#334155;margin:0;line-height:1.5">'
-                f'{c["text"][:320]}{"..." if len(c["text"]) > 320 else ""}'
+                f'{snippet}{ellipsis}'
                 f'</p></div>',
                 unsafe_allow_html=True,
             )
@@ -335,9 +455,10 @@ def render_plan(plan: dict, user_id=None):
     if not plan or not plan.get("steps"):
         return
     import db
+    proc = plan.get("procedure", "Application Steps")
     st.markdown(
         f'<h3 style="font-size:1.05rem;font-weight:700;color:#0F172A;margin:.5rem 0">'
-        f'📋 Checklist: {plan.get("procedure", "Application Steps")}</h3>',
+        f'📋 Checklist: {proc}</h3>',
         unsafe_allow_html=True,
     )
     docs = plan.get("documents", [])
@@ -353,15 +474,15 @@ def render_plan(plan: dict, user_id=None):
         overdue = dl and dl[:10] < today
         icon = "⚠️" if overdue else f"{i}."
         color = "#EF4444" if overdue else "#2563EB"
+        dl_text = f"📅 {dl}" if dl else "No deadline stated"
+        src_text = f" · {s.get('source', '')}" if s.get("source") else ""
         st.markdown(
             f'<div class="checklist-item">'
             f'<div style="font-size:.85rem;font-weight:700;color:{color};min-width:1.5rem">{icon}</div>'
             f'<div style="flex:1">'
             f'<div style="font-size:.88rem;font-weight:600;color:#0F172A">{s.get("step","")}</div>'
-            f'<div style="font-size:.77rem;color:#475569;margin-top:.2rem">'
-            f'{("📅 " + dl) if dl else "No deadline stated"}'
-            f'{(" · " + s.get("source","")) if s.get("source") else ""}'
-            f'</div></div></div>',
+            f'<div style="font-size:.77rem;color:#475569;margin-top:.2rem">{dl_text}{src_text}</div>'
+            f'</div></div>',
             unsafe_allow_html=True,
         )
 
@@ -370,7 +491,7 @@ def render_plan(plan: dict, user_id=None):
         col1, col2 = st.columns([1, 1])
         with col1:
             if st.button("💾 Save to Planning & Tasks", type="primary", use_container_width=True):
-                db.add_tasks(user_id, plan.get("procedure", ""), steps)
+                db.add_tasks(user_id, proc, steps)
                 st.toast("Tasks saved to Planning & Tasks!", icon="✅")
                 st.success("✅ Saved to Planning & Tasks!")
         with col2:
@@ -384,7 +505,7 @@ def render_plan(plan: dict, user_id=None):
                         ics_events.append(
                             f"BEGIN:VEVENT\r\nSUMMARY:{s.get('step','Task')}\r\n"
                             f"DTSTART;VALUE=DATE:{dtstr}\r\nDTEND;VALUE=DATE:{dtstr}\r\n"
-                            f"DESCRIPTION:{plan.get('procedure','')}\r\nEND:VEVENT"
+                            f"DESCRIPTION:{proc}\r\nEND:VEVENT"
                         )
                     except Exception:
                         pass

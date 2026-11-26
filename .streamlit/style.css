@@ -38,9 +38,46 @@ html, body, [class*="css"] {
 
 #MainMenu, footer, header { visibility: hidden; }
 .block-container {
-  padding: 1.5rem 2.25rem 3rem !important;
-  max-width: 1320px !important;
+  padding: 1rem 2rem 3rem !important;
+  max-width: 1360px !important;
 }
+
+/* ── Global Top Navigation Bar ───────────────────────────────────── */
+.af-topbar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .65rem 1.15rem;
+  margin-bottom: 1.15rem;
+  box-shadow: var(--shadow);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .75rem; flex-wrap: wrap;
+  border-left: 4px solid var(--primary);
+}
+.af-topbar-left {
+  display: flex; align-items: center; gap: .7rem;
+}
+.af-topbar-logo {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--brand-grad);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.af-topbar-title {
+  font-size: .95rem; font-weight: 800; color: var(--text-primary);
+  letter-spacing: -.02em; line-height: 1.1;
+}
+.af-topbar-sub {
+  font-size: .72rem; color: var(--text-sec);
+}
+.af-role-pill {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .24rem .7rem; border-radius: 999px;
+  font-size: .72rem; font-weight: 700;
+}
+.af-role-student { background: var(--primary-lt); color: var(--primary); }
+.af-role-admin   { background: var(--violet-lt);  color: var(--violet); }
+.af-role-officer { background: var(--cyan-lt);    color: #0891B2; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {

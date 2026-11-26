@@ -3,11 +3,13 @@ import streamlit as st
 import db, ui
 
 def show(user: dict):
-    ui.inject_css()
-    ui.render_sidebar(user)
-    ui.page_header("My Profile",
-                   "Manage your institutional profile and account security.",
-                   section="Account")
+    home = {"admin": "Admin Home", "officer": "Officer Home"}.get(user.get("role"), "Student Home")
+    ui.render_chrome(
+        user,
+        "My Profile",
+        "Manage your institutional profile and account security.",
+        breadcrumbs=[home, "My Profile"],
+    )
 
     uid  = user["id"]
     role = user.get("role","student")
