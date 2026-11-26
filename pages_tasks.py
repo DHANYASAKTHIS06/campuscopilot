@@ -78,55 +78,57 @@ def show(user: dict):
             continue
 
         done_p = sum(1 for t in proc_tasks if t["status"] == "done")
-        st.markdown(f"""
-        <div class="card" style="margin-bottom:.75rem;padding:1.1rem 1.25rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <h3 style="font-size:.95rem;font-weight:700;color:#0F172A;margin:0">{proc}</h3>
-            <span style="font-size:.78rem;color:#64748B">{done_p}/{len(proc_tasks)} done</span>
-          </div>
-        """, unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(
+                f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">'
+                f'<h3 style="font-size:.95rem;font-weight:700;color:#17233F;margin:0">{proc}</h3>'
+                f'<span style="font-size:.78rem;color:#667085">{done_p}/{len(proc_tasks)} done</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
-        for t in proc_tasks:
-            dl = t.get("deadline", "")
-            overdue = dl and dl[:10] < today and t["status"] != "done"
-            tid = t["id"]
+            for t in proc_tasks:
+                dl = t.get("deadline", "")
+                overdue = dl and dl[:10] < today and t["status"] != "done"
+                tid = t["id"]
 
-            check_icon = {"done": "✅", "blocked": "🚫", "pending": "⬜"}.get(t["status"], "⬜")
-            col1, col2, col3 = st.columns([6, 2, 1])
-            with col1:
-                st.markdown(f"""
-                <div style="font-size:.86rem;font-weight:500;color:{'#DC2626' if overdue else '#0F172A'}">
-                  {check_icon} {'⚠️ ' if overdue else ''}{t['step']}
-                </div>
-                <div style="font-size:.76rem;color:#64748B;margin-left:1.6rem">
-                  {('📅 ' + dl) if dl else 'No deadline'} · {t.get('source','') or ''}
-                </div>""", unsafe_allow_html=True)
-            with col2:
-                new_status = st.selectbox(
-                    "Status", ["pending", "done", "blocked"],
-                    index=["pending", "done", "blocked"].index(t["status"]),
-                    key=f"st_{tid}", label_visibility="collapsed"
-                )
-                if new_status != t["status"]:
-                    db.set_status(tid, new_status)
-                    st.rerun()
-            with col3:
-                if st.button("🗑", key=f"del_{tid}", help="Delete task"):
-                    db.delete_task(tid)
-                    st.rerun()
+                check_icon = {"done": "✅", "blocked": "🚫", "pending": "⬜"}.get(t["status"], "⬜")
+                col1, col2, col3 = st.columns([6, 2, 1])
+                with col1:
+                    color = "#EF4444" if overdue else "#17233F"
+                    warn_icon = "⚠️ " if overdue else ""
+                    dl_txt = f"📅 {dl}" if dl else "No deadline"
+                    src_txt = t.get("source", "") or ""
+                    st.markdown(
+                        f'<div style="font-size:.86rem;font-weight:500;color:{color}">'
+                        f'{check_icon} {warn_icon}{t["step"]}</div>'
+                        f'<div style="font-size:.76rem;color:#667085;margin-left:1.6rem">'
+                        f'{dl_txt} · {src_txt}</div>',
+                        unsafe_allow_html=True,
+                    )
+                with col2:
+                    new_status = st.selectbox(
+                        "Status", ["pending", "done", "blocked"],
+                        index=["pending", "done", "blocked"].index(t["status"]),
+                        key=f"st_{tid}", label_visibility="collapsed"
+                    )
+                    if new_status != t["status"]:
+                        db.set_status(tid, new_status)
+                        st.rerun()
+                with col3:
+                    if st.button("🗑", key=f"del_{tid}", help="Delete task"):
+                        db.delete_task(tid)
+                        st.rerun()
 
-            # Blocked: show recovery agent
-            if t["status"] == "blocked" or overdue:
-                with st.expander(f"🆘 Get Recovery Plan for this step"):
-                    why = st.text_input("What went wrong?", key=f"why_{tid}",
-                                        placeholder="Describe the issue...")
-                    if why and st.button("Get Recovery Plan", key=f"rec_{tid}", type="primary"):
-                        with st.spinner("Finding alternatives..."):
-                            chunks = rag.search(t["step"], 4)
-                            rec    = agents.recovery_agent(t, why, chunks)
-                        st.markdown(f"""
-                        <div class="cc-alert info">
-                          <span>🔄</span><div>{rec}</div>
-                        </div>""", unsafe_allow_html=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
+                if t["status"] == "blocked" or overdue:
+                    with st.expander("🆘 Get Recovery Plan for this step"):
+                        why = st.text_input("What went wrong?", key=f"why_{tid}",
+                                            placeholder="Describe the issue...")
+                        if why and st.button("Get Recovery Plan", key=f"rec_{tid}", type="primary"):
+                            with st.spinner("Finding alternatives..."):
+                                chunks = rag.search(t["step"], 4)
+                                rec    = agents.recovery_agent(t, why, chunks)
+                            st.markdown(
+                                f'<div class="cc-alert info"><span>🔄</span><div>{rec}</div></div>',
+                                unsafe_allow_html=True,
+                            )

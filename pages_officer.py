@@ -105,11 +105,10 @@ def show(user: dict):
                 </div>""", unsafe_allow_html=True)
 
                 # Ticket description
-                st.markdown('<div class="card" style="background:#F8FAFC;padding:1rem">'
-                            '<strong style="font-size:.82rem;color:#475569">STUDENT\'S REQUEST</strong><br>',
-                            unsafe_allow_html=True)
-                st.markdown(ticket.get("description", ""))
-                st.markdown('</div>', unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.markdown('<strong style="font-size:.82rem;color:#475569">STUDENT\'S REQUEST</strong>',
+                                unsafe_allow_html=True)
+                    st.markdown(ticket.get("description", ""))
 
                 # AI-suggested response
                 ai_col, _ = st.columns([2, 1])

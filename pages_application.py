@@ -94,39 +94,36 @@ def show(user: dict):
         subject_txt = st.session_state.get("letter_subject", "Application")
 
         st.markdown("### 📄 Generated Letter")
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+        with st.container(border=True):
+            # Editable preview
+            edited_letter = st.text_area("Review and edit your letter:",
+                                         value=letter, height=400)
 
-        # Editable preview
-        edited_letter = st.text_area("Review and edit your letter:",
-                                     value=letter, height=400)
-
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            # Plain text download
-            st.download_button(
-                "⬇️ Download as .txt",
-                data=edited_letter.encode("utf-8"),
-                file_name=f"application_{subject_txt[:30].replace(' ','_')}.txt",
-                mime="text/plain",
-                use_container_width=True,
-            )
-        with c2:
-            # PDF download
-            pdf_bytes = _make_pdf(edited_letter, subject_txt)
-            if pdf_bytes:
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                # Plain text download
                 st.download_button(
-                    "📄 Download as PDF",
-                    data=pdf_bytes,
-                    file_name=f"application_{subject_txt[:30].replace(' ','_')}.pdf",
-                    mime="application/pdf",
+                    "⬇️ Download as .txt",
+                    data=edited_letter.encode("utf-8"),
+                    file_name=f"application_{subject_txt[:30].replace(' ','_')}.txt",
+                    mime="text/plain",
                     use_container_width=True,
                 )
-        with c3:
-            if st.button("🔄 Regenerate", use_container_width=True):
-                del st.session_state["generated_letter"]
-                st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)
+            with c2:
+                # PDF download
+                pdf_bytes = _make_pdf(edited_letter, subject_txt)
+                if pdf_bytes:
+                    st.download_button(
+                        "📄 Download as PDF",
+                        data=pdf_bytes,
+                        file_name=f"application_{subject_txt[:30].replace(' ','_')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
+            with c3:
+                if st.button("🔄 Regenerate", use_container_width=True):
+                    del st.session_state["generated_letter"]
+                    st.rerun()
 
     ui.render_footer()
 

@@ -118,98 +118,93 @@ def show(user: dict):
 
     # ── Left: Deadlines + Recent Conversations ─────────────────────────────
     with left:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### 📅 Upcoming Deadlines & Tasks")
-        upcoming = sorted(
-            [t for t in tasks if t["status"] != "done"],
-            key=lambda x: x.get("deadline") or "9999-99-99",
-        )[:5]
-        if not upcoming:
-            st.markdown(
-                '<div class="cc-alert info"><span>💡</span>'
-                '<span>No pending tasks. Ask AcadFlow about an application to generate a checklist.</span></div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            for t in upcoming:
-                dl = t.get("deadline", "")
-                is_over = dl and dl[:10] < today
+        with st.container(border=True):
+            st.markdown("### 📅 Upcoming Deadlines & Tasks")
+            upcoming = sorted(
+                [t for t in tasks if t["status"] != "done"],
+                key=lambda x: x.get("deadline") or "9999-99-99",
+            )[:5]
+            if not upcoming:
                 st.markdown(
-                    f'<div class="checklist-item">'
-                    f'<div style="flex:1"><div style="font-size:.86rem;font-weight:600;color:#0F172A">'
-                    f'{"⚠️ " if is_over else ""}{t["step"]}</div>'
-                    f'<div style="font-size:.76rem;color:#64748B;margin-top:.15rem">'
-                    f'{t["procedure"]} · {dl or "No deadline"}</div></div>'
-                    f'{ui.status_badge(t["status"])}</div>',
+                    '<div class="cc-alert info"><span>💡</span>'
+                    '<span>No pending tasks. Ask AcadFlow about an application to generate a checklist.</span></div>',
                     unsafe_allow_html=True,
                 )
-        st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                for t in upcoming:
+                    dl = t.get("deadline", "")
+                    is_over = dl and dl[:10] < today
+                    st.markdown(
+                        f'<div class="checklist-item">'
+                        f'<div style="flex:1"><div style="font-size:.86rem;font-weight:600;color:#17233F">'
+                        f'{"⚠️ " if is_over else ""}{t["step"]}</div>'
+                        f'<div style="font-size:.76rem;color:#667085;margin-top:.15rem">'
+                        f'{t["procedure"]} · {dl or "No deadline"}</div></div>'
+                        f'{ui.status_badge(t["status"])}</div>',
+                        unsafe_allow_html=True,
+                    )
 
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### 💬 Recent Conversations")
-        if not chats:
-            st.caption("No conversations yet. Start a chat with AcadFlow!")
-        else:
-            for ch in reversed(chats[-4:]):
-                st.markdown(
-                    f'<div style="border-bottom:1px solid #F1F5F9;padding:.55rem 0">'
-                    f'<div style="font-size:.85rem;font-weight:600;color:#0F172A">Q: {ch["question"][:80]}</div>'
-                    f'<div style="font-size:.78rem;color:#475569;margin-top:.15rem">'
-                    f'{ch["answer"][:110]}{"..." if len(ch["answer"]) > 110 else ""}</div></div>',
-                    unsafe_allow_html=True,
-                )
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("### 💬 Recent Conversations")
+            if not chats:
+                st.caption("No conversations yet. Start a chat with AcadFlow!")
+            else:
+                for ch in reversed(chats[-4:]):
+                    st.markdown(
+                        f'<div style="border-bottom:1px solid #F1F5F9;padding:.55rem 0">'
+                        f'<div style="font-size:.85rem;font-weight:600;color:#17233F">Q: {ch["question"][:80]}</div>'
+                        f'<div style="font-size:.78rem;color:#667085;margin-top:.15rem">'
+                        f'{ch["answer"][:110]}{"..." if len(ch["answer"]) > 110 else ""}</div></div>',
+                        unsafe_allow_html=True,
+                    )
 
     # ── Right: Announcements + Tickets + Suggested Questions ───────────────
     with right:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### 📢 Institutional Announcements")
-        if not announcements:
-            st.caption("No announcements posted yet.")
-        else:
-            for ann in announcements:
-                st.markdown(
-                    f'<div style="border-bottom:1px solid #F1F5F9;padding:.55rem 0">'
-                    f'<div style="display:flex;justify-content:space-between;align-items:center">'
-                    f'<strong style="font-size:.86rem;color:#0F172A">{ann["title"]}</strong>'
-                    f'{ui.badge(ann.get("category","General"), "violet")}</div>'
-                    f'<div style="font-size:.8rem;color:#475569;margin-top:.2rem">{ann["body"]}</div>'
-                    f'<div style="font-size:.72rem;color:#94A3B8;margin-top:.15rem">{ann["created_at"][:10]}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("### 📢 Institutional Announcements")
+            if not announcements:
+                st.caption("No announcements posted yet.")
+            else:
+                for ann in announcements:
+                    st.markdown(
+                        f'<div style="border-bottom:1px solid #F1F5F9;padding:.55rem 0">'
+                        f'<div style="display:flex;justify-content:space-between;align-items:center">'
+                        f'<strong style="font-size:.86rem;color:#17233F">{ann["title"]}</strong>'
+                        f'{ui.badge(ann.get("category","General"), "violet")}</div>'
+                        f'<div style="font-size:.8rem;color:#667085;margin-top:.2rem">{ann["body"]}</div>'
+                        f'<div style="font-size:.72rem;color:#94A3B8;margin-top:.15rem">{ann["created_at"][:10]}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### 🎫 Recent Support Tickets")
-        if not tickets:
-            st.caption("No support tickets raised.")
-        else:
-            for tk in tickets[:3]:
-                resp = "✅ Replied" if tk.get("officer_response") else "⏳ Pending reply"
-                st.markdown(
-                    f'<div style="border-bottom:1px solid #F1F5F9;padding:.5rem 0">'
-                    f'<div style="display:flex;justify-content:space-between;align-items:center">'
-                    f'<span style="font-size:.84rem;font-weight:600">#{tk["id"]} {tk["subject"][:32]}</span>'
-                    f'{ui.status_badge(tk["status"])}</div>'
-                    f'<div style="font-size:.75rem;color:#64748B">{resp}</div></div>',
-                    unsafe_allow_html=True,
-                )
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("### 🎫 Recent Support Tickets")
+            if not tickets:
+                st.caption("No support tickets raised.")
+            else:
+                for tk in tickets[:3]:
+                    resp = "✅ Replied" if tk.get("officer_response") else "⏳ Pending reply"
+                    st.markdown(
+                        f'<div style="border-bottom:1px solid #F1F5F9;padding:.5rem 0">'
+                        f'<div style="display:flex;justify-content:space-between;align-items:center">'
+                        f'<span style="font-size:.84rem;font-weight:600">#{tk["id"]} {tk["subject"][:32]}</span>'
+                        f'{ui.status_badge(tk["status"])}</div>'
+                        f'<div style="font-size:.75rem;color:#667085">{resp}</div></div>',
+                        unsafe_allow_html=True,
+                    )
 
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("### 💡 Try Asking AcadFlow")
-    suggestions = [
-        "How do I apply for a bonafide certificate?",
-        "What are the scholarship eligibility criteria?",
-        "What are the hostel rules and fees?",
-    ]
-    scols = st.columns(3)
-    for i, sq in enumerate(suggestions):
-        with scols[i]:
-            if st.button(f"✨ {sq}", key=f"dash_sq_{i}", use_container_width=True):
-                st.session_state["prefill_question"] = sq
-                ui.navigate("chat")
-    st.markdown("</div>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown("### 💡 Try Asking AcadFlow")
+        suggestions = [
+            "How do I apply for a bonafide certificate?",
+            "What are the scholarship eligibility criteria?",
+            "What are the hostel rules and fees?",
+        ]
+        scols = st.columns(3)
+        for i, sq in enumerate(suggestions):
+            with scols[i]:
+                if st.button(f"✨ {sq}", key=f"dash_sq_{i}", use_container_width=True):
+                    st.session_state["prefill_question"] = sq
+                    ui.navigate("chat")
 
     ui.render_footer()

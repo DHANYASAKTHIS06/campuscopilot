@@ -16,10 +16,8 @@ def show(user: dict):
 
     # ── New Ticket ────────────────────────────────────────────────────────
     with tab_new:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown("### Submit a Support Request")
-        st.markdown('<p style="color:#475569;font-size:.88rem">Our helpdesk team will respond within 1-2 working days.</p>',
-                    unsafe_allow_html=True)
+        st.caption("Our helpdesk team will respond within 1-2 working days.")
 
         common_subjects = [
             "-- Select a common issue --",
@@ -49,7 +47,6 @@ def show(user: dict):
             else:
                 tid = db.create_ticket(uid, subject.strip(), desc.strip())
                 st.success(f"✅ Ticket #{tid} submitted successfully! We'll respond soon.")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     # ── My Tickets ────────────────────────────────────────────────────────
     with tab_my:

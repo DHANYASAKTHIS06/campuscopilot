@@ -17,7 +17,6 @@ def show(user: dict):
     tab_info, tab_pw = st.tabs(["📋 Profile Information", "🔒 Change Password"])
 
     with tab_info:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
         with st.form("profile_form"):
             full_name = st.text_input("Full Name",    value=user.get("full_name",""))
             email     = st.text_input("Email",        value=user.get("email",""),
@@ -41,10 +40,8 @@ def show(user: dict):
         if save:
             db.update_user_profile(uid, full_name, dept, sem, cgpa, income)
             st.success("✅ Profile updated!")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab_pw:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
         with st.form("pw_form"):
             old_pw  = st.text_input("Current Password", type="password")
             new_pw  = st.text_input("New Password",     type="password")
@@ -61,4 +58,3 @@ def show(user: dict):
             else:
                 db.change_password(uid, new_pw)
                 st.success("✅ Password changed successfully!")
-        st.markdown('</div>', unsafe_allow_html=True)
